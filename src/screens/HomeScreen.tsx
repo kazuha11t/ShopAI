@@ -1,17 +1,22 @@
-﻿// src/screens/HomeScreen.tsx
-// Chương 4, 5, 6 & 7: Màn hình chính ShopAI với FlashList 2 cột, Location GPS Badge, Scanner Button
+// src/screens/HomeScreen.tsx
+// Chương 2, 3, 4, 5, 6 & 7: Trang chủ ShopAI — 3 trạng thái UI thật (loading/data/error),
+// phân trang vô hạn (React Query), Dark Mode, Đa ngôn ngữ, Countdown, FlashList, GPS, Scanner
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FlashList } from '@shopify/flash-list';
+import { useTranslation } from 'react-i18next';
 import ProductCard from '@components/ProductCard';
 import ShopButton from '@components/ShopButton';
 import LocationBadge from '@components/LocationBadge';
-import { MOCK_PRODUCTS, Product } from '@data/mockProducts';
+import { Product } from '@data/mockProducts';
 import { COLORS, SIZES } from '@constants/theme';
+import { useTheme } from '@contexts/ThemeContext';
+import { useCountdown } from '@hooks/useCountdown';
+import { useInfiniteProductsQuery } from '@hooks/useProductsQuery';
 import type { HomeStackParamList } from '@navigation/HomeStackNavigator';
 
 type HomeNavProp = NativeStackNavigationProp<HomeStackParamList, 'Home'>;
@@ -22,17 +27,30 @@ interface HomeScreenProps {
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   const navigation = useNavigation<HomeNavProp>();
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
-  const [refreshing, setRefreshing] = useState(false);
+  const { colors, isDark, toggleTheme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const { formatted: countdownText } = useCountdown(2 * 60 * 60); // Flash sale 2 giờ
 
-  // Pull-to-refresh (Chương 4)
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      // Giả lập làm mới danh sách
-      setProducts([...MOCK_PRODUCTS]);
-      setRefreshing(false);
-    }, 1000);
+  // Chương 2 (3 trạng thái UI) + Chương 6.5/6.8 (React Query + phân trang vô hạn)
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteProductsQuery();
+
+  const products: Product[] = useMemo(
+    () => data?.pages.flatMap((page) => page.data) ?? [],
+    [data],
+  );
+
+  const toggleLanguage = () => {
+    i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
   };
 
   const handleProductPress = (productId: string) => {
@@ -40,58 +58,108 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     navigation.navigate('ProductDetail', { productId });
   };
 
+  const dynamicStyles = {
+    safeArea: { backgroundColor: colors.background },
+    header: { backgroundColor: colors.surface, borderColor: colors.border },
+    headerSub: { color: colors.textLight },
+    sectionTitle: { color: colors.text },
+  };
+
+  // ===== Trạng thái Loading (lần tải đầu tiên) =====
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, dynamicStyles.safeArea]}>
+        <View style={styles.centerState}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={[styles.centerStateText, { color: colors.textLight }]}>{t('home.loading')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ===== Trạng thái Error =====
+  if (isError) {
+    return (
+      <SafeAreaView style={[styles.safeArea, dynamicStyles.safeArea]}>
+        <View style={styles.centerState}>
+          <Text style={styles.errorEmoji}>⚠️</Text>
+          <Text style={[styles.errorTitle, { color: colors.text }]}>{t('home.errorTitle')}</Text>
+          <Text style={[styles.errorDetail, { color: colors.textLight }]}>
+            {error instanceof Error ? error.message : String(error)}
+          </Text>
+          <ShopButton title={t('home.retry')} onPress={() => refetch()} style={styles.retryBtn} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ===== Trạng thái Data =====
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, dynamicStyles.safeArea]} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
-        {/* Header với thương hiệu, nút Quét mã và nút Đăng xuất */}
-        <View style={styles.header}>
+        {/* Header với thương hiệu, nút Dark Mode, Ngôn ngữ, Wishlist, Quét mã, Đăng xuất */}
+        <View style={[styles.header, dynamicStyles.header]}>
           <View>
-            <Text style={styles.headerLogo}>ShopAI</Text>
-            <Text style={styles.headerSub}>Khám phá công nghệ & xu hướng</Text>
+            <Text style={styles.headerLogo}>{t('home.brand')}</Text>
+            <Text style={[styles.headerSub, dynamicStyles.headerSub]}>{t('home.welcome')}</Text>
           </View>
           <View style={styles.headerActions}>
-  <ShopButton
-    title="Quét mã 📷"
-    onPress={() => navigation.navigate('Scanner')}
-    style={styles.scanBtn}
-    variant="outline"
-  />
+            <Pressable style={styles.iconToggle} onPress={toggleTheme} hitSlop={6}>
+              <Text style={styles.iconToggleText}>{isDark ? '☀️' : '🌙'}</Text>
+            </Pressable>
+            <Pressable style={styles.iconToggle} onPress={toggleLanguage} hitSlop={6}>
+              <Text style={styles.langToggleText}>{i18n.language === 'vi' ? 'VI' : 'EN'}</Text>
+            </Pressable>
+            <Pressable style={styles.iconToggle} onPress={() => navigation.navigate('Wishlist')} hitSlop={6}>
+              <Text style={styles.iconToggleText}>❤️</Text>
+            </Pressable>
+          </View>
+        </View>
 
-  <ShopButton
-    title="Redux"
-    onPress={() => navigation.navigate('ReduxCartDemo')}
-    style={styles.reduxBtn}
-    variant="outline"
-  />
-<ShopButton
-  title="React Query"
-  onPress={() => navigation.navigate('ReactQueryDemo')}
-  style={styles.reduxBtn}
-  variant="outline"
-/>
-
-  <ShopButton
-    title="Thoát"
-    onPress={onLogout}
-    style={styles.logoutBtn}
-    variant="outline"
-  />
-</View>
+        <View style={styles.actionsRow}>
+          <ShopButton
+            title={`${t('home.scan')} 📷`}
+            onPress={() => navigation.navigate('Scanner')}
+            style={styles.actionBtn}
+            variant="outline"
+          />
+          <ShopButton
+            title="Redux"
+            onPress={() => navigation.navigate('ReduxCartDemo')}
+            style={styles.actionBtn}
+            variant="outline"
+          />
+          <ShopButton
+            title="React Query"
+            onPress={() => navigation.navigate('ReactQueryDemo')}
+            style={styles.actionBtn}
+            variant="outline"
+          />
+          <ShopButton
+            title={t('home.logout')}
+            onPress={onLogout}
+            style={styles.actionBtn}
+            variant="outline"
+          />
         </View>
 
         {/* Widget GPS Geolocation tính phí vận chuyển tự động (Chương 7) */}
         <LocationBadge />
 
-        {/* Banner khuyến mãi */}
+        {/* Banner khuyến mãi + Countdown (Custom Hook useCountdown - Chương 3) */}
         <View style={styles.banner}>
           <Text style={styles.bannerBadge}>HOT DEAL 🔥</Text>
           <Text style={styles.bannerTitle}>Siêu Hội Mua Sắm ShopAI</Text>
-          <Text style={styles.bannerSub}>Giảm đến 50% cho thành viên mới</Text>
+          <Text style={styles.bannerSub}>
+            {t('home.flashSale')}: <Text style={styles.countdownText}>{countdownText}</Text>
+          </Text>
         </View>
 
-        {/* Danh sách sản phẩm 2 cột bằng FlashList (Chương 4) */}
+        {/* Danh sách sản phẩm 2 cột bằng FlashList + Phân trang vô hạn (Chương 4 & 6.8) */}
         <View style={styles.listContainer}>
-          <Text style={styles.sectionTitle}>Sản phẩm nổi bật ({products.length})</Text>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>
+            {t('home.featured')} ({products.length})
+          </Text>
           <FlashList
             data={products}
             keyExtractor={(item) => item.id}
@@ -107,10 +175,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
+                refreshing={isRefetching}
+                onRefresh={() => { refetch(); }}
                 colors={[COLORS.primary]}
               />
+            }
+            onEndReachedThreshold={0.4}
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+            }}
+            ListFooterComponent={
+              isFetchingNextPage ? (
+                <View style={styles.footerLoading}>
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <Text style={styles.footerLoadingText}>{t('home.loadMore')}</Text>
+                </View>
+              ) : null
             }
           />
         </View>
@@ -127,6 +207,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  centerState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SIZES.padding * 1.5,
+  },
+  centerStateText: {
+    marginTop: SIZES.md,
+    fontSize: SIZES.body1,
+    color: COLORS.textLight,
+  },
+  errorEmoji: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  errorTitle: {
+    fontSize: SIZES.h3,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  errorDetail: {
+    fontSize: SIZES.body2,
+    color: COLORS.textLight,
+    textAlign: 'center',
+    marginBottom: SIZES.lg,
+  },
+  retryBtn: {
+    minWidth: 160,
+  },
   header: {
     paddingHorizontal: SIZES.padding,
     paddingVertical: 12,
@@ -136,7 +247,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: SIZES.sm,
   },
   headerLogo: {
     fontSize: 24,
@@ -150,22 +260,38 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  scanBtn: {
+  iconToggle: {
+    width: 34,
     height: 34,
-    paddingHorizontal: 10,
+    borderRadius: 17,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-reduxBtn: {
-  height: 34,
-  paddingHorizontal: 10,
-},
-  logoutBtn: {
+  iconToggleText: {
+    fontSize: 16,
+  },
+  langToggleText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: SIZES.padding,
+    paddingTop: SIZES.sm,
+  },
+  actionBtn: {
     height: 34,
     paddingHorizontal: 10,
   },
   banner: {
     marginHorizontal: SIZES.padding,
+    marginTop: SIZES.sm,
     marginBottom: SIZES.padding,
     padding: SIZES.padding,
     backgroundColor: '#1A1A2E',
@@ -187,6 +313,10 @@ reduxBtn: {
     color: '#B0B0C0',
     fontSize: 13,
   },
+  countdownText: {
+    color: '#FFD700',
+    fontWeight: '800',
+  },
   listContainer: {
     flex: 1,
     paddingHorizontal: SIZES.sm,
@@ -203,6 +333,17 @@ reduxBtn: {
   },
   productPressable: {
     flex: 1,
+  },
+  footerLoading: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: SIZES.md,
+    gap: 8,
+  },
+  footerLoadingText: {
+    fontSize: SIZES.caption,
+    color: COLORS.textLight,
   },
 });
 

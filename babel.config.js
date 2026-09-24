@@ -17,6 +17,8 @@
           '@types': './src/types',
           '@store': './src/store',
           '@services': './src/services',
+          '@i18n': './src/i18n',
+          '@utils': './src/utils',
         },
       },
     ],

@@ -6,6 +6,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import ShopButton from '@components/ShopButton';
 import ShopInput from '@components/ui/ShopInput';
 import { COLORS, SIZES } from '@constants/theme';
+import { loginSchema, extractFieldErrors } from '@utils/validation';
 
 interface LoginScreenProps {
   onLogin: (token: string) => void;
@@ -19,15 +20,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoRegister }) => {
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
-    const nextErrors: { email?: string; password?: string } = {};
-    if (!email.includes('@')) {
-      nextErrors.email = 'Email không hợp lệ (cần chứa ký tự @)';
+    // Chương 6.7: Validate bằng Zod thay vì if/else thủ công
+    const result = extractFieldErrors(loginSchema, { email, password });
+    if (!result.success) {
+      setErrors(result.errors);
+      return false;
     }
-    if (password.length < 6) {
-      nextErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
-    }
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    setErrors({});
+    return true;
   };
 
   const handleLogin = () => {

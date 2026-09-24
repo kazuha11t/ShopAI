@@ -1,8 +1,8 @@
 // src/screens/ScannerScreen.tsx
 // Chương 7: Màn hình Quét mã vạch sản phẩm (Barcode / QR Scanner) + Haptic Feedback
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, PermissionsAndroid, Platform, Alert, Linking, Vibration, Pressable } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, PermissionsAndroid, Platform, Alert, Linking, Vibration, Pressable, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SIZES } from '@constants/theme';
@@ -55,6 +55,18 @@ const ScannerScreen: React.FC = () => {
   useEffect(() => {
     requestCameraPermission();
   }, []);
+
+  // Chương 7.5: Tự dò lại quyền Camera khi quay lại app từ Cài đặt hệ thống
+  const appState = useRef<import('react-native').AppStateStatus>(AppState.currentState as import('react-native').AppStateStatus);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active' && hasPermission === false) {
+        requestCameraPermission();
+      }
+      appState.current = nextState;
+    });
+    return () => subscription.remove();
+  }, [hasPermission]);
 
   const handleSimulateScan = (productId: string) => {
     if (!isScanning) return;

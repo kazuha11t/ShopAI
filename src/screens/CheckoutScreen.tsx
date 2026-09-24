@@ -11,6 +11,8 @@ import ShopInput from '@components/ui/ShopInput';
 import { useCartStore } from '@store/useCartStore';
 import { useOrderStore } from '@store/useOrderStore';
 import { useLocation } from '@hooks/useLocation';
+import { checkoutSchema, extractFieldErrors } from '@utils/validation';
+import { applyVoucherCode, VoucherResult } from '@constants/vouchers';
 
 const CheckoutScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -24,30 +26,38 @@ const CheckoutScreen: React.FC = () => {
   const [name, setName] = useState('Nguyễn Văn Khách');
   const [phone, setPhone] = useState('0987654321');
   const [address, setAddress] = useState('Số 123 Đường Cầu Giấy, Hà Nội');
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  const grandTotal = rawTotal + shippingFee;
+  // Chương 6.10: Voucher giảm giá
+  const [voucherInput, setVoucherInput] = useState('');
+  const [voucherResult, setVoucherResult] = useState<VoucherResult | null>(null);
 
-  const formattedSubtotal = new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(rawTotal);
+  const handleApplyVoucher = () => {
+    const result = applyVoucherCode(voucherInput, rawTotal, shippingFee);
+    setVoucherResult(result);
+  };
 
-  const formattedShipping = new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(shippingFee);
+  const itemDiscount = voucherResult?.itemDiscount ?? 0;
+  const shippingDiscount = voucherResult?.shippingDiscount ?? 0;
+  const finalShippingFee = Math.max(shippingFee - shippingDiscount, 0);
+  const grandTotal = Math.max(rawTotal - itemDiscount + finalShippingFee, 0);
 
-  const formattedGrandTotal = new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(grandTotal);
+  const money = (v: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
+
+  const formattedSubtotal = money(rawTotal);
+  const formattedShipping = money(finalShippingFee);
+  const formattedGrandTotal = money(grandTotal);
 
   const handleConfirmOrder = () => {
-    if (!name.trim() || !phone.trim() || !address.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin giao hàng');
+    // Chương 6.7: Validate form giao hàng bằng Zod
+    const result = extractFieldErrors(checkoutSchema, { name, phone, address });
+    if (!result.success) {
+      setErrors(result.errors);
+      Alert.alert('Lỗi', 'Vui lòng kiểm tra lại thông tin giao hàng');
       return;
     }
+    setErrors({});
 
     setSubmitting(true);
     // Haptic feedback khi đặt hàng thành công (Chương 7)
@@ -57,7 +67,7 @@ const CheckoutScreen: React.FC = () => {
       const orderId = createOrder({
         items,
         totalAmount: grandTotal,
-        shippingFee,
+        shippingFee: finalShippingFee,
         customerName: name,
         customerPhone: phone,
         customerAddress: address,
@@ -98,6 +108,7 @@ const CheckoutScreen: React.FC = () => {
             value={name}
             onChangeText={setName}
             placeholder="Tên người nhận"
+            error={errors.name}
           />
           <ShopInput
             label="Số điện thoại"
@@ -105,13 +116,36 @@ const CheckoutScreen: React.FC = () => {
             onChangeText={setPhone}
             placeholder="Số điện thoại"
             keyboardType="phone-pad"
+            error={errors.phone}
           />
           <ShopInput
             label="Địa chỉ chi tiết"
             value={address}
             onChangeText={setAddress}
             placeholder="Số nhà, đường, phường/xã..."
+            error={errors.address}
           />
+        </View>
+
+        {/* Khối Voucher giảm giá (Chương 6.10) */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>🎟️ Mã giảm giá</Text>
+          <View style={styles.voucherRow}>
+            <View style={styles.voucherInputWrapper}>
+              <ShopInput
+                label=""
+                value={voucherInput}
+                onChangeText={(t) => setVoucherInput(t.toUpperCase())}
+                placeholder="Nhập mã (vd: SALE10)"
+                autoCapitalize="characters"
+              />
+            </View>
+            <ShopButton title="Áp dụng" onPress={handleApplyVoucher} variant="outline" style={styles.voucherBtn} />
+          </View>
+          {voucherResult?.error && <Text style={styles.voucherError}>{voucherResult.error}</Text>}
+          {voucherResult?.voucher && (
+            <Text style={styles.voucherSuccess}>✅ Đã áp dụng: {voucherResult.voucher.label}</Text>
+          )}
         </View>
 
         {/* Khối khoảng cách & phí vận chuyển theo GPS */}
@@ -142,6 +176,12 @@ const CheckoutScreen: React.FC = () => {
             <Text style={styles.infoLabel}>Phí giao hàng:</Text>
             <Text style={styles.infoValue}>{formattedShipping}</Text>
           </View>
+          {itemDiscount > 0 && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Giảm giá voucher:</Text>
+              <Text style={styles.discountValue}>-{money(itemDiscount)}</Text>
+            </View>
+          )}
           <View style={styles.divider} />
           <View style={styles.infoRow}>
             <Text style={styles.grandLabel}>Tổng thanh toán:</Text>
@@ -213,6 +253,34 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: COLORS.primary,
+  },
+  discountValue: {
+    fontSize: SIZES.body2,
+    fontWeight: '700',
+    color: COLORS.success,
+  },
+  voucherRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  voucherInputWrapper: {
+    flex: 1,
+  },
+  voucherBtn: {
+    marginTop: 0,
+    height: SIZES.inputHeight,
+  },
+  voucherError: {
+    fontSize: SIZES.caption,
+    color: COLORS.error,
+    marginTop: -8,
+  },
+  voucherSuccess: {
+    fontSize: SIZES.caption,
+    color: COLORS.success,
+    fontWeight: '600',
+    marginTop: -8,
   },
   bottomBar: {
     backgroundColor: COLORS.surface,

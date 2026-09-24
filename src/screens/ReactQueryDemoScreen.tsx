@@ -16,7 +16,7 @@ const ReactQueryDemoScreen = () => {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" />
-        <Text style={styles.status}>�ang t?i s?n ph?m...</Text>
+        <Text style={styles.status}>Đang tải sản phẩm...</Text>
       </View>
     );
   }
@@ -24,7 +24,7 @@ const ReactQueryDemoScreen = () => {
   if (isError) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>L?i: {error.message}</Text>
+        <Text style={styles.error}>Lỗi: {error.message}</Text>
       </View>
     );
   }
@@ -34,19 +34,19 @@ const ReactQueryDemoScreen = () => {
       <Text style={styles.title}>React Query Demo</Text>
 
       <Text style={styles.status}>
-        T?ng s?n ph?m: {data?.total ?? 0}
+        Tổng sản phẩm: {data?.total ?? 0}
       </Text>
 
       <Text style={styles.status}>
-        �� t?i: {data?.data.length ?? 0} s?n ph?m
+        Đã tải: {data?.data.length ?? 0} sản phẩm
       </Text>
 
       <Text style={styles.status}>
-        {isFetching ? '�ang c?p nh?t...' : 'Query d� ho�n t?t'}
+        {isFetching ? 'Đang cập nhật...' : 'Query đã hoàn tất'}
       </Text>
 
       <Text style={styles.refresh} onPress={() => refetch()}>
-        ?? Nh?n d? refetch
+        🔄 Nhấn để refetch
       </Text>
 
       <FlatList

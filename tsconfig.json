@@ -13,7 +13,10 @@
       "@hooks/*": ["hooks/*"],
       "@types/*": ["types/*"],
       "@store/*": ["store/*"],
-      "@services/*": ["services/*"]
+      "@services/*": ["services/*"],
+      "@i18n": ["i18n/index"],
+      "@i18n/*": ["i18n/*"],
+      "@utils/*": ["utils/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],

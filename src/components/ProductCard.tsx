@@ -2,15 +2,19 @@
 // Chương 4: UI/UX Component hiển thị Card sản phẩm cho Grid 2 cột
 
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { COLORS, SIZES } from '@constants/theme';
 import { Product } from '@data/mockProducts';
+import { useWishlistStore } from '@store/useWishlistStore';
 
 interface ProductCardProps {
   product: Product;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+  const isWishlisted = useWishlistStore((state) => state.isWishlisted(product.id));
+  const toggleWishlist = useWishlistStore((state) => state.toggleWishlist);
+
   const formattedPrice = new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
@@ -23,6 +27,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         style={styles.image}
         resizeMode="cover"
       />
+      <Pressable
+        style={styles.wishlistBtn}
+        hitSlop={8}
+        onPress={() => toggleWishlist(product.id)}
+      >
+        <Text style={styles.wishlistIcon}>{isWishlisted ? '❤️' : '🤍'}</Text>
+      </Pressable>
       <View style={styles.info}>
         {product.category && (
           <Text style={styles.category}>{product.category}</Text>
@@ -62,6 +73,20 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 160,
     backgroundColor: '#ECECEC',
+  },
+  wishlistBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wishlistIcon: {
+    fontSize: 14,
   },
   info: {
     padding: SIZES.sm,

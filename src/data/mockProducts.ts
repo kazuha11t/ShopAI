@@ -1,6 +1,14 @@
 // src/data/mockProducts.ts
 // Dữ liệu mẫu sản phẩm dùng cho Chương 2, 4, 5
 
+export interface Review {
+  id: string;
+  author: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -9,6 +17,7 @@ export interface Product {
   category?: string;
   rating?: number;
   description?: string;
+  reviews?: Review[];
 }
 
 export const MOCK_PRODUCTS: Product[] = [
@@ -20,6 +29,10 @@ export const MOCK_PRODUCTS: Product[] = [
     category: 'Thời trang nam',
     rating: 4.8,
     description: 'Áo thun phong cách basic oversize thoáng mát, chất vải 100% cotton cao cấp thấm hút mồ hôi tốt.',
+    reviews: [
+      { id: 'r1', author: 'Minh Anh', rating: 5, comment: 'Vải mát, form đẹp, đúng như hình!', createdAt: '2026-08-01' },
+      { id: 'r2', author: 'Quốc Bảo', rating: 4, comment: 'Giao hàng hơi lâu nhưng chất lượng ổn.', createdAt: '2026-08-10' },
+    ],
   },
   {
     id: '2',

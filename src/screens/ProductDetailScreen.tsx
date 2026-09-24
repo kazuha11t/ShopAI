@@ -1,14 +1,17 @@
 ﻿// src/screens/ProductDetailScreen.tsx
 // Chương 5, 6 & 7: Chi tiết sản phẩm, Thêm vào Giỏ hàng (Zustand) & Phản hồi rung (Vibration Haptic)
 
-import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, Alert, Vibration } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, ScrollView, Alert, Vibration, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import ShopButton from '@components/ShopButton';
+import ShopInput from '@components/ui/ShopInput';
 import { MOCK_PRODUCTS } from '@data/mockProducts';
 import { COLORS, SIZES } from '@constants/theme';
 import { useCartStore } from '@store/useCartStore';
+import { useWishlistStore } from '@store/useWishlistStore';
+import { useReviewStore } from '@store/useReviewStore';
 import type { HomeStackParamList } from '@navigation/HomeStackNavigator';
 
 type ProductDetailRouteProp = RouteProp<HomeStackParamList, 'ProductDetail'>;
@@ -19,9 +22,27 @@ const ProductDetailScreen: React.FC = () => {
   const { productId } = route.params;
 
   const addItem = useCartStore((state) => state.addItem);
+  const isWishlisted = useWishlistStore((state) => state.isWishlisted(productId));
+  const toggleWishlist = useWishlistStore((state) => state.toggleWishlist);
+  const userReviews = useReviewStore((state) => state.getReviews(productId));
+  const addReview = useReviewStore((state) => state.addReview);
+
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
 
   // Lấy dữ liệu sản phẩm dựa trên ID truyền qua params
   const product = MOCK_PRODUCTS.find((p) => p.id === productId);
+  const allReviews = [...userReviews, ...(product?.reviews ?? [])];
+
+  const handleSubmitReview = () => {
+    if (!reviewComment.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập nội dung đánh giá');
+      return;
+    }
+    addReview(productId, { author: 'Bạn', rating: reviewRating, comment: reviewComment.trim() });
+    setReviewComment('');
+    setReviewRating(5);
+  };
 
   if (!product) {
     return (
@@ -63,11 +84,20 @@ const ProductDetailScreen: React.FC = () => {
 
           <View style={styles.metaRow}>
             <Text style={styles.price}>{formattedPrice}</Text>
-            {product.rating && (
-              <View style={styles.ratingBadge}>
-                <Text style={styles.ratingText}>⭐ {product.rating} / 5.0</Text>
-              </View>
-            )}
+            <View style={styles.metaRight}>
+              {product.rating && (
+                <View style={styles.ratingBadge}>
+                  <Text style={styles.ratingText}>⭐ {product.rating} / 5.0</Text>
+                </View>
+              )}
+              <Pressable
+                style={styles.wishlistToggle}
+                onPress={() => toggleWishlist(productId)}
+                hitSlop={8}
+              >
+                <Text style={styles.wishlistToggleIcon}>{isWishlisted ? '❤️' : '🤍'}</Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.divider} />
@@ -79,6 +109,44 @@ const ProductDetailScreen: React.FC = () => {
           </Text>
 
           <Text style={styles.idNote}>Mã định danh (SKU): #{product.id}</Text>
+
+          <View style={styles.divider} />
+
+          {/* Chương 6.10: Đánh giá sản phẩm (Review) */}
+          <Text style={styles.sectionTitle}>Đánh giá ({allReviews.length})</Text>
+
+          <View style={styles.reviewForm}>
+            <Text style={styles.reviewFormLabel}>Chọn số sao:</Text>
+            <View style={styles.starRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Pressable key={star} onPress={() => setReviewRating(star)} hitSlop={4}>
+                  <Text style={styles.starIcon}>{star <= reviewRating ? '⭐' : '☆'}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <ShopInput
+              label=""
+              placeholder="Viết cảm nhận của bạn..."
+              value={reviewComment}
+              onChangeText={setReviewComment}
+            />
+            <ShopButton title="Gửi đánh giá" onPress={handleSubmitReview} variant="outline" />
+          </View>
+
+          {allReviews.length === 0 ? (
+            <Text style={styles.noReview}>Chưa có đánh giá nào cho sản phẩm này.</Text>
+          ) : (
+            allReviews.map((review) => (
+              <View key={review.id} style={styles.reviewItem}>
+                <View style={styles.reviewHeader}>
+                  <Text style={styles.reviewAuthor}>{review.author}</Text>
+                  <Text style={styles.reviewStars}>{'⭐'.repeat(review.rating)}</Text>
+                </View>
+                <Text style={styles.reviewComment}>{review.comment}</Text>
+                <Text style={styles.reviewDate}>{review.createdAt}</Text>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
 
@@ -138,6 +206,22 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.primary,
   },
+  metaRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  wishlistToggle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wishlistToggleIcon: {
+    fontSize: 16,
+  },
   ratingBadge: {
     backgroundColor: '#FFFBE6',
     paddingHorizontal: 8,
@@ -169,6 +253,58 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   idNote: {
+    fontSize: SIZES.caption,
+    color: COLORS.textLight,
+  },
+  reviewForm: {
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
+    marginBottom: SIZES.md,
+  },
+  reviewFormLabel: {
+    fontSize: SIZES.body2,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  starRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: SIZES.sm,
+  },
+  starIcon: {
+    fontSize: 24,
+  },
+  noReview: {
+    fontSize: SIZES.body2,
+    color: COLORS.textLight,
+    fontStyle: 'italic',
+  },
+  reviewItem: {
+    borderTopWidth: 1,
+    borderColor: COLORS.border,
+    paddingVertical: SIZES.sm,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  reviewAuthor: {
+    fontSize: SIZES.body2,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  reviewStars: {
+    fontSize: 12,
+  },
+  reviewComment: {
+    fontSize: SIZES.body2,
+    color: '#4A4A4A',
+    marginBottom: 2,
+  },
+  reviewDate: {
     fontSize: SIZES.caption,
     color: COLORS.textLight,
   },

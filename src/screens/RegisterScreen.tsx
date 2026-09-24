@@ -6,6 +6,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import ShopButton from '@components/ShopButton';
 import ShopInput from '@components/ui/ShopInput';
 import { COLORS, SIZES } from '@constants/theme';
+import { registerSchema, extractFieldErrors } from '@utils/validation';
 
 interface RegisterScreenProps {
   onRegistered: (token: string) => void;
@@ -26,13 +27,14 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegistered, onGoLogin
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
-    const next: typeof errors = {};
-    if (name.trim().length < 2) next.name = 'Họ tên tối thiểu 2 ký tự';
-    if (!email.includes('@')) next.email = 'Email không hợp lệ (phải chứa @)';
-    if (password.length < 6) next.password = 'Mật khẩu phải có ít nhất 6 ký tự';
-    if (confirm !== password) next.confirm = 'Xác nhận mật khẩu không khớp';
-    setErrors(next);
-    return Object.keys(next).length === 0;
+    // Chương 6.7: Validate bằng Zod (bao gồm .refine kiểm tra khớp mật khẩu)
+    const result = extractFieldErrors(registerSchema, { name, email, password, confirm });
+    if (!result.success) {
+      setErrors(result.errors);
+      return false;
+    }
+    setErrors({});
+    return true;
   };
 
   const handleRegister = () => {

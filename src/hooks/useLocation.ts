@@ -1,34 +1,24 @@
 ﻿// src/hooks/useLocation.ts
 // Chương 7: Định vị GPS, xin quyền Geolocation & Ước tính phí giao hàng theo khoảng cách
 
-import { useState, useEffect, useCallback } from 'react';
-import { PermissionsAndroid, Platform, Alert, Linking } from 'react-native';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { PermissionsAndroid, Platform, Alert, Linking, AppState } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
-
-// Tọa độ kho trung tâm ShopAI (Hồ Gươm, Hà Nội: 21.0285° N, 105.8542° E)
-const WAREHOUSE_LAT = 21.0285;
-const WAREHOUSE_LNG = 105.8542;
-
-// Công thức Haversine tính khoảng cách giữa 2 điểm GPS (km)
-function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Bán kính Trái Đất (km)
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c);
-}
+import {
+  WAREHOUSE_LAT,
+  WAREHOUSE_LNG,
+  FALLBACK_DISTANCE_KM,
+  FALLBACK_SHIPPING_FEE,
+  getDistanceKm,
+  calculateShippingFee,
+} from '@constants/shipping';
 
 export function useLocation() {
-  const [distanceKm, setDistanceKm] = useState<number>(5);
-  const [shippingFee, setShippingFee] = useState<number>(20000);
+  const [distanceKm, setDistanceKm] = useState<number>(FALLBACK_DISTANCE_KM);
+  const [shippingFee, setShippingFee] = useState<number>(FALLBACK_SHIPPING_FEE);
   const [loading, setLoading] = useState<boolean>(false);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
+  const appState = useRef<import('react-native').AppStateStatus>(AppState.currentState as import('react-native').AppStateStatus);
 
   const requestLocationPermission = async (): Promise<boolean> => {
     if (Platform.OS === 'android') {
@@ -69,10 +59,7 @@ export function useLocation() {
   const calculateShipping = (userLat: number, userLng: number) => {
     const km = getDistanceKm(WAREHOUSE_LAT, WAREHOUSE_LNG, userLat, userLng);
     setDistanceKm(km);
-
-    // Biểu phí: 15.000đ cơ bản + 2.500đ/km
-    const fee = 15000 + km * 2500;
-    setShippingFee(fee);
+    setShippingFee(calculateShippingFee(km));
   };
 
   const refreshLocation = useCallback(async () => {
@@ -87,9 +74,9 @@ export function useLocation() {
       },
       (_error) => {
         setLoading(false);
-        // Fallback mặc định 5km nếu lỗi GPS (như trên máy ảo)
-        setDistanceKm(5);
-        setShippingFee(25000);
+        // Fallback mặc định nếu lỗi GPS (như trên máy ảo)
+        setDistanceKm(FALLBACK_DISTANCE_KM);
+        setShippingFee(FALLBACK_SHIPPING_FEE);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
     );
@@ -98,6 +85,17 @@ export function useLocation() {
   useEffect(() => {
     refreshLocation();
   }, [refreshLocation]);
+
+  // Chương 7.5: Tự dò lại quyền vị trí khi người dùng quay lại app từ Settings
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active' && !hasPermission) {
+        refreshLocation();
+      }
+      appState.current = nextState;
+    });
+    return () => subscription.remove();
+  }, [hasPermission, refreshLocation]);
 
   return {
     distanceKm,

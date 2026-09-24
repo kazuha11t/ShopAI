@@ -10,6 +10,7 @@ import { Provider as ReduxProvider } from 'react-redux';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@contexts/ThemeContext';
 import { store } from '@store/redux/store';
+import '@i18n';
 import LoginScreen from '@screens/LoginScreen';
 import RegisterScreen from '@screens/RegisterScreen';
 import MainTabNavigator from '@navigation/MainTabNavigator';

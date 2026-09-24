@@ -10,6 +10,7 @@ import OrdersScreen from '@screens/OrdersScreen';
 import OrderDetailScreen from '@screens/OrderDetailScreen';
 import ReduxCartDemoScreen from '@screens/ReduxCartDemoScreen';
 import ReactQueryDemoScreen from '@screens/ReactQueryDemoScreen';
+import WishlistScreen from '@screens/WishlistScreen';
 import { COLORS } from '@constants/theme';
 
 export type HomeStackParamList = {
@@ -20,6 +21,7 @@ export type HomeStackParamList = {
   Orders: undefined;
   OrderDetail: { orderId: string };
   ReduxCartDemo: undefined;
+  Wishlist: undefined;
 };
 const Stack = createNativeStackNavigator<HomeStackParamList>();
 
@@ -90,6 +92,15 @@ const HomeStackNavigator: React.FC<HomeStackNavigatorProps> = ({ onLogout }) => 
         options={{
           title: 'Chi tiết đơn hàng',
           headerBackTitle: 'Đơn hàng',
+        }}
+      />
+
+      <Stack.Screen
+        name="Wishlist"
+        component={WishlistScreen}
+        options={{
+          title: 'Sản phẩm yêu thích',
+          headerBackTitle: 'Trang chủ',
         }}
       />
     </Stack.Navigator>
