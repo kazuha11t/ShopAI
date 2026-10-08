@@ -9,6 +9,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
+import LottieView from 'lottie-react-native';
+import loadingAnimation from '@assets/lottie/loading-pulse.json';
 import ProductCard from '@components/ProductCard';
 import ShopButton from '@components/ShopButton';
 import LocationBadge from '@components/LocationBadge';
@@ -70,7 +72,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     return (
       <SafeAreaView style={[styles.safeArea, dynamicStyles.safeArea]}>
         <View style={styles.centerState}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          {/* Chương 3.7: Hiệu ứng Lottie khi loading */}
+          <LottieView source={loadingAnimation} autoPlay loop style={styles.lottieLoading} />
           <Text style={[styles.centerStateText, { color: colors.textLight }]}>{t('home.loading')}</Text>
         </View>
       </SafeAreaView>
@@ -163,12 +166,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           <FlashList
             data={products}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
               <Pressable
                 style={styles.productPressable}
                 onPress={() => handleProductPress(item.id)}
               >
-                <ProductCard product={item} />
+                <ProductCard product={item} index={index} />
               </Pressable>
             )}
             numColumns={2}
@@ -217,6 +220,10 @@ const styles = StyleSheet.create({
     marginTop: SIZES.md,
     fontSize: SIZES.body1,
     color: COLORS.textLight,
+  },
+  lottieLoading: {
+    width: 120,
+    height: 120,
   },
   errorEmoji: {
     fontSize: 48,

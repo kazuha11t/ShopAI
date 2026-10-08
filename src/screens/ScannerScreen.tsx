@@ -1,102 +1,90 @@
 // src/screens/ScannerScreen.tsx
-// Chương 7: Màn hình Quét mã vạch sản phẩm (Barcode / QR Scanner) + Haptic Feedback
+// Chương 7: Màn hình Quét mã vạch/QR thật bằng Vision Camera (MLKit Code Scanner) + Haptic Feedback
 
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, PermissionsAndroid, Platform, Alert, Linking, Vibration, Pressable, AppState } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Alert, Linking, Vibration, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { Camera, useCameraDevice, useCameraPermission, useCodeScanner, type Code } from 'react-native-vision-camera';
 import { COLORS, SIZES } from '@constants/theme';
 import ShopButton from '@components/ShopButton';
 import { MOCK_PRODUCTS } from '@data/mockProducts';
 
 const ScannerScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const isFocused = useIsFocused();
+  const device = useCameraDevice('back');
+  // Chương 7.5: hook này tự refresh quyền qua AppState listener khi người dùng quay lại từ Settings
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const [permissionAsked, setPermissionAsked] = useState(false);
   const [isScanning, setIsScanning] = useState(true);
 
-  // Xin quyền Camera theo chuẩn UX (Chương 7.2 & 7.5)
-  const requestCameraPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: 'Quyền Camera ShopAI',
-            message: 'ShopAI cần quyền mở Camera để quét mã vạch sản phẩm và kiểm tra nguồn gốc.',
-            buttonNeutral: 'Để sau',
-            buttonNegative: 'Hủy',
-            buttonPositive: 'Cho phép',
-          },
-        );
+  useEffect(() => {
+    if (!hasPermission && !permissionAsked) {
+      requestPermission().finally(() => setPermissionAsked(true));
+    }
+  }, [hasPermission, permissionAsked, requestPermission]);
 
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          setHasPermission(true);
-        } else if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-          setHasPermission(false);
+  const handleDetectedCode = useCallback(
+    (value: string) => {
+      setIsScanning((currentlyScanning) => {
+        if (!currentlyScanning) return currentlyScanning;
+
+        // Haptic feedback khi bắt trúng mã (Chương 7.6)
+        Vibration.vibrate(40);
+
+        // Mã QR in cho sản phẩm có dạng "shopai://product/<id>" (xem thư mục qr-codes/)
+        const code = value.trim().replace(/^shopai:\/\/product\//i, '');
+        const found = MOCK_PRODUCTS.find((p) => p.id === code || p.name === code);
+        if (found) {
           Alert.alert(
-            'Quyền Camera Bị Chặn',
-            'Bạn đã từ chối quyền Camera vĩnh viễn. Vui lòng vào Cài đặt để kích hoạt tính năng quét mã.',
+            'Đã nhận diện mã vạch! 📷',
+            `Sản phẩm: ${found.name}\nGiá: ${found.price.toLocaleString('vi-VN')} đ`,
             [
-              { text: 'Để sau', style: 'cancel' },
-              { text: 'Mở Cài đặt', onPress: () => Linking.openSettings() },
+              {
+                text: 'Xem chi tiết ngay',
+                onPress: () => navigation.replace('ProductDetail', { productId: found.id }),
+              },
+              { text: 'Quét tiếp', onPress: () => setIsScanning(true) },
             ],
           );
         } else {
-          setHasPermission(false);
+          Alert.alert(
+            'Không khớp sản phẩm nào',
+            `Mã vừa quét: "${value}"\nKhông tìm thấy sản phẩm tương ứng trong kho ShopAI.`,
+            [{ text: 'Quét tiếp', onPress: () => setIsScanning(true) }],
+          );
         }
-      } catch {
-        setHasPermission(false);
-      }
-    } else {
-      setHasPermission(true);
-    }
-  };
+        return false;
+      });
+    },
+    [navigation],
+  );
 
-  useEffect(() => {
-    requestCameraPermission();
-  }, []);
+  // Chương 7.8: Code Scanner dùng MLKit native, chạy trên luồng riêng, trả kết quả về JS thread
+  const codeScanner = useCodeScanner({
+    codeTypes: ['qr', 'ean-13', 'ean-8', 'code-128', 'code-39', 'upc-a', 'upc-e'],
+    onCodeScanned: (codes: Code[]) => {
+      const value = codes[0]?.value;
+      if (value) handleDetectedCode(value);
+    },
+  });
 
-  // Chương 7.5: Tự dò lại quyền Camera khi quay lại app từ Cài đặt hệ thống
-  const appState = useRef<import('react-native').AppStateStatus>(AppState.currentState as import('react-native').AppStateStatus);
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (appState.current.match(/inactive|background/) && nextState === 'active' && hasPermission === false) {
-        requestCameraPermission();
-      }
-      appState.current = nextState;
-    });
-    return () => subscription.remove();
-  }, [hasPermission]);
+  const handleSimulateScan = (productId: string) => handleDetectedCode(productId);
 
-  const handleSimulateScan = (productId: string) => {
-    if (!isScanning) return;
-    setIsScanning(false);
+  // ===== Đang chờ kết quả xin quyền lần đầu =====
+  if (!hasPermission && !permissionAsked) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centerBox}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-    // Haptic feedback khi bắt trúng mã vạch (Chương 7.6)
-    Vibration.vibrate(40);
-
-    const found = MOCK_PRODUCTS.find((p) => p.id === productId);
-    if (found) {
-      Alert.alert(
-        'Đã nhận diện mã vạch! 📷',
-        `Sản phẩm: ${found.name}\nGiá: ${found.price.toLocaleString('vi-VN')} đ`,
-        [
-          {
-            text: 'Xem chi tiết ngay',
-            onPress: () => {
-              navigation.replace('ProductDetail', { productId: found.id });
-            },
-          },
-          {
-            text: 'Quét tiếp',
-            onPress: () => setIsScanning(true),
-          },
-        ],
-      );
-    }
-  };
-
-  if (hasPermission === false) {
+  // ===== Bị từ chối quyền Camera (Chương 7.5: pop-up giải thích + nút Mở Cài đặt) =====
+  if (!hasPermission) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBox}>
@@ -105,49 +93,59 @@ const ScannerScreen: React.FC = () => {
           <Text style={styles.subtitle}>
             Để dùng tính năng Quét mã vạch sản phẩm, ứng dụng cần bạn cấp quyền truy cập Camera.
           </Text>
+          <ShopButton title="Cấp quyền ngay" onPress={() => requestPermission()} style={styles.actionBtn} />
           <ShopButton
             title="Mở Cài Đặt Hệ Thống"
             onPress={() => Linking.openSettings()}
+            variant="outline"
             style={styles.actionBtn}
           />
-          <ShopButton
-            title="Quay lại"
-            onPress={() => navigation.goBack()}
-            variant="ghost"
-            style={styles.backBtn}
-          />
+          <ShopButton title="Quay lại" onPress={() => navigation.goBack()} variant="ghost" style={styles.backBtn} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <View style={styles.scannerContainer}>
-        {/* Khung ngắm mô phỏng quét mã */}
-        <View style={styles.cameraViewport}>
-          <View style={styles.viewfinder}>
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
-            <View style={styles.scanLaser} />
+        {device != null ? (
+          <View style={styles.cameraWrapper}>
+            {/* Camera thật + MLKit Code Scanner (Chương 7.3 - 7.8) */}
+            <Camera
+              style={StyleSheet.absoluteFill}
+              device={device}
+              isActive={isFocused && isScanning}
+              codeScanner={codeScanner}
+            />
+            <View style={styles.viewfinderOverlay} pointerEvents="none">
+              <View style={styles.viewfinder}>
+                <View style={[styles.corner, styles.topLeft]} />
+                <View style={[styles.corner, styles.topRight]} />
+                <View style={[styles.corner, styles.bottomLeft]} />
+                <View style={[styles.corner, styles.bottomRight]} />
+              </View>
+              <Text style={styles.guidanceText}>
+                Hướng camera vào mã vạch (Barcode / QR) trên bao bì sản phẩm
+              </Text>
+            </View>
           </View>
-          <Text style={styles.guidanceText}>
-            Hướng camera vào mã vạch (Barcode / QR) trên bao bì sản phẩm
-          </Text>
-        </View>
+        ) : (
+          <View style={styles.centerBox}>
+            <Text style={styles.errorEmoji}>📵</Text>
+            <Text style={styles.title}>Không tìm thấy Camera</Text>
+            <Text style={styles.subtitle}>
+              Thiết bị/máy ảo này không có Camera sau khả dụng. Dùng nút mô phỏng bên dưới để kiểm thử luồng quét.
+            </Text>
+          </View>
+        )}
 
-        {/* Bảng test quét nhanh mô phỏng các sản phẩm mẫu */}
+        {/* Bảng test quét nhanh mô phỏng — hữu ích khi test trên máy ảo không có mã thật */}
         <View style={styles.demoSheet}>
-          <Text style={styles.demoTitle}>💡 Thử nghiệm quét nhanh (Mock Barcode):</Text>
+          <Text style={styles.demoTitle}>💡 Không có mã thật? Thử nhanh (Mock Barcode):</Text>
           <View style={styles.demoButtonsRow}>
             {MOCK_PRODUCTS.slice(0, 3).map((p) => (
-              <Pressable
-                key={p.id}
-                style={styles.demoCodeBtn}
-                onPress={() => handleSimulateScan(p.id)}
-              >
+              <Pressable key={p.id} style={styles.demoCodeBtn} onPress={() => handleSimulateScan(p.id)}>
                 <Text style={styles.demoCodeText}>Quét mã #{p.id}</Text>
               </Pressable>
             ))}
@@ -167,30 +165,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
-  cameraViewport: {
+  cameraWrapper: {
     flex: 1,
+  },
+  viewfinderOverlay: {
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SIZES.padding,
   },
   viewfinder: {
     width: 250,
     height: 250,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  scanLaser: {
-    width: '90%',
-    height: 2,
-    backgroundColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 4,
   },
   corner: {
     position: 'absolute',
@@ -198,30 +186,10 @@ const styles = StyleSheet.create({
     height: 24,
     borderColor: COLORS.primary,
   },
-  topLeft: {
-    top: -2,
-    left: -2,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
-  },
-  topRight: {
-    top: -2,
-    right: -2,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-  },
-  bottomLeft: {
-    bottom: -2,
-    left: -2,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-  },
-  bottomRight: {
-    bottom: -2,
-    right: -2,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-  },
+  topLeft: { top: -2, left: -2, borderTopWidth: 4, borderLeftWidth: 4 },
+  topRight: { top: -2, right: -2, borderTopWidth: 4, borderRightWidth: 4 },
+  bottomLeft: { bottom: -2, left: -2, borderBottomWidth: 4, borderLeftWidth: 4 },
+  bottomRight: { bottom: -2, right: -2, borderBottomWidth: 4, borderRightWidth: 4 },
   guidanceText: {
     marginTop: SIZES.xl,
     color: '#FFFFFF',
@@ -283,7 +251,8 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.xl,
   },
   actionBtn: {
-    minWidth: 200,
+    minWidth: 220,
+    marginBottom: SIZES.sm,
   },
   backBtn: {
     marginTop: 8,

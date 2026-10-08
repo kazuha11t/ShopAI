@@ -31,18 +31,18 @@ const WishlistScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <FlashList
         data={items}
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <Pressable
             style={styles.productPressable}
             onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
           >
-            <ProductCard product={item} />
+            <ProductCard product={item} index={index} />
           </Pressable>
         )}
       />

@@ -12,6 +12,9 @@ interface ReviewState {
   getReviews: (productId: string) => Review[];
 }
 
+// Mảng rỗng dùng chung: Zustand v5 so sánh selector theo tham chiếu, trả `[]` mới mỗi lần sẽ gây vòng lặp render vô hạn
+const EMPTY_REVIEWS: Review[] = [];
+
 export const useReviewStore = create<ReviewState>()(
   persist(
     (set, get) => ({
@@ -31,7 +34,7 @@ export const useReviewStore = create<ReviewState>()(
         }));
       },
 
-      getReviews: (productId) => get().reviewsByProduct[productId] ?? [],
+      getReviews: (productId) => get().reviewsByProduct[productId] ?? EMPTY_REVIEWS,
     }),
     {
       name: 'shopai-review-storage',

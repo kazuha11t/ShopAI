@@ -74,7 +74,7 @@ const ProductDetailScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.container}>
         <Image source={{ uri: product.image }} style={styles.image} resizeMode="cover" />
 

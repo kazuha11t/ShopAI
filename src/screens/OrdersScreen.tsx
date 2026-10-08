@@ -58,7 +58,7 @@ const OrdersScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       {orders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>📦</Text>

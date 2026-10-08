@@ -32,6 +32,7 @@ interface HomeStackNavigatorProps {
 const HomeStackNavigator: React.FC<HomeStackNavigatorProps> = ({ onLogout }) => {
   return (
     <Stack.Navigator
+      initialRouteName="Home"
       screenOptions={{
         headerTintColor: COLORS.primary,
         headerTitleStyle: {

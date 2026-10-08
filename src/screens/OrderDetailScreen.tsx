@@ -52,7 +52,7 @@ const OrderDetailScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.container}>
         {/* Banner trạng thái đơn hàng */}
         <View style={[styles.statusBanner, isPaid ? styles.bannerPaid : styles.bannerPending]}>

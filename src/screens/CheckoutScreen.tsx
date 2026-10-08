@@ -21,7 +21,7 @@ const CheckoutScreen: React.FC = () => {
   const rawTotal = useCartStore((state) => state.totalPrice());
   const createOrder = useOrderStore((state) => state.createOrder);
 
-  const { distanceKm, shippingFee } = useLocation();
+  const { distanceKm, shippingFee, error: locationError } = useLocation();
 
   const [name, setName] = useState('Nguyễn Văn Khách');
   const [phone, setPhone] = useState('0987654321');
@@ -98,7 +98,7 @@ const CheckoutScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.container}>
         {/* Khối thông tin người nhận */}
         <View style={styles.sectionCard}>
@@ -157,8 +157,13 @@ const CheckoutScreen: React.FC = () => {
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Khoảng cách ước tính:</Text>
-            <Text style={styles.infoValue}>~{distanceKm} km</Text>
+            <Text style={styles.infoValue}>{locationError ? 'Chưa xác định' : `~${distanceKm} km`}</Text>
           </View>
+          {locationError && (
+            <Text style={styles.locationWarning}>
+              ⚠️ {locationError.message} Phí vận chuyển đang được tạm tính theo mức mặc định.
+            </Text>
+          )}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Thời gian dự kiến:</Text>
             <Text style={styles.infoValue}>1 - 2 ngày làm việc</Text>
@@ -202,6 +207,14 @@ const CheckoutScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  locationWarning: {
+    fontSize: 12,
+    color: '#AD4E00',
+    backgroundColor: '#FFF8E6',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 6,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,

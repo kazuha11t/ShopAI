@@ -1,19 +1,42 @@
 // src/components/ProductCard.tsx
 // Chương 4: UI/UX Component hiển thị Card sản phẩm cho Grid 2 cột
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
 import { COLORS, SIZES } from '@constants/theme';
 import { Product } from '@data/mockProducts';
 import { useWishlistStore } from '@store/useWishlistStore';
 
 interface ProductCardProps {
   product: Product;
+  index?: number;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) => {
   const isWishlisted = useWishlistStore((state) => state.isWishlisted(product.id));
   const toggleWishlist = useWishlistStore((state) => state.toggleWishlist);
+
+  // Chương 4.4: Fade-in + trượt nhẹ chạy trên UI Thread bằng Reanimated
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(12);
+
+  useEffect(() => {
+    const staggerDelay = Math.min(index, 8) * 40;
+    opacity.value = withDelay(staggerDelay, withTiming(1, { duration: 280, easing: Easing.out(Easing.quad) }));
+    translateY.value = withDelay(staggerDelay, withTiming(0, { duration: 280, easing: Easing.out(Easing.quad) }));
+  }, [opacity, translateY, index]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
   const formattedPrice = new Intl.NumberFormat('vi-VN', {
     style: 'currency',
@@ -21,7 +44,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   }).format(product.price);
 
   return (
-    <View style={styles.card}>
+    <Animated.View style={[styles.card, animatedStyle]}>
       <Image
         source={{ uri: product.image }}
         style={styles.image}
@@ -50,7 +73,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           )}
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
