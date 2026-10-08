@@ -38,6 +38,8 @@
 	<string>ShopAI cần quyền truy cập vị trí để ước tính chi phí giao hàng tận nhà.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>ShopAI cần quyền mở Camera để quét mã vạch sản phẩm và kiểm tra nguồn gốc.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>ShopAI dùng Face ID để bảo vệ tài khoản và thông tin đơn hàng của bạn.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

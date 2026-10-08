@@ -1,5 +1,5 @@
 ﻿// src/navigation/HomeStackNavigator.tsx
-// Chương 5, 6, 7: Stack Navigator cho nhánh Trang chủ (Home -> ProductDetail, Scanner, Orders)
+// Chương 5, 6, 7, 8: Stack Navigator cho nhánh Trang chủ (Home -> ProductDetail, Scanner, Orders, AIChat)
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -11,6 +11,7 @@ import OrderDetailScreen from '@screens/OrderDetailScreen';
 import ReduxCartDemoScreen from '@screens/ReduxCartDemoScreen';
 import ReactQueryDemoScreen from '@screens/ReactQueryDemoScreen';
 import WishlistScreen from '@screens/WishlistScreen';
+import AIChatScreen from '@screens/AIChatScreen';
 import { COLORS } from '@constants/theme';
 
 export type HomeStackParamList = {
@@ -22,6 +23,7 @@ export type HomeStackParamList = {
   OrderDetail: { orderId: string };
   ReduxCartDemo: undefined;
   Wishlist: undefined;
+  AIChat: undefined;
 };
 const Stack = createNativeStackNavigator<HomeStackParamList>();
 
@@ -101,6 +103,16 @@ const HomeStackNavigator: React.FC<HomeStackNavigatorProps> = ({ onLogout }) => 
         component={WishlistScreen}
         options={{
           title: 'Sản phẩm yêu thích',
+          headerBackTitle: 'Trang chủ',
+        }}
+      />
+
+      {/* Chương 8: Nhân viên tư vấn AI — sibling với Scanner trong HomeStack */}
+      <Stack.Screen
+        name="AIChat"
+        component={AIChatScreen}
+        options={{
+          title: 'Tư vấn AI',
           headerBackTitle: 'Trang chủ',
         }}
       />

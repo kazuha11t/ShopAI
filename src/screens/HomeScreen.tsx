@@ -120,6 +120,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         </View>
 
         <View style={styles.actionsRow}>
+          {/* Chương 8: mở Nhân viên tư vấn AI */}
+          <ShopButton
+            title="Hỏi AI 🤖"
+            onPress={() => navigation.navigate('AIChat')}
+            style={styles.actionBtn}
+          />
           <ShopButton
             title={`${t('home.scan')} 📷`}
             onPress={() => navigation.navigate('Scanner')}
