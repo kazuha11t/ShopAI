@@ -9,6 +9,8 @@
 ## Khởi động
 
 Hai repository cạnh nhau: `ShopAI` (mobile), `shopai-backend` (Nest).
+Dùng Node.js 24.9 trở lên để chạy và kiểm thử cả hai repo; backend Jest cần
+khả năng nạp ESM của Node 24. Cả hai repo có `.nvmrc` chọn Node 24.
 
 Backend, PowerShell:
 

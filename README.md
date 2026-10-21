@@ -12,7 +12,9 @@
 
 ## Chuẩn bị trên máy mới
 
-Cần Node.js 22 (từ 22.13) hoặc 24 (từ 24.3), npm, Java 17, Android SDK và điện thoại Android bật USB debugging.
+Để chạy cả mobile và backend, dùng Node.js 24.9 trở lên, npm, Java 17,
+Android SDK và điện thoại Android bật USB debugging. File `.nvmrc` chọn Node 24.
+Native Android hiện dùng SDK/Build Tools 37 và NDK `27.1.12297006`.
 Build iOS cần macOS/Xcode. Dự án dùng native modules; chạy bằng app native, không dùng Expo Go.
 
 ```powershell

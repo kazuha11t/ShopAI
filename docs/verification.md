@@ -11,11 +11,13 @@ Tài liệu này không thay thế video hoặc kiểm thử trên máy thật.
 | Mobile Jest/RNTL | PASS, 7 suites / 16 tests | `test-mobile-final.log`: auth, cart, checkout, JWT expiry, theme, root và ShopButton |
 | Mobile TypeScript/lint | PASS | TypeScript không lỗi; ESLint 0 errors, 11 warnings |
 | Backend unit và HTTP integration | PASS, 7 suites / 15 tests | Auth, JWT, Prisma, giá server, tồn kho, idempotency, quyền xem đơn, pay và lưu bền |
+| GitHub Actions mobile | PASS trên Ubuntu | [Run 39596656990](https://github.com/kazuha11t/ShopAI/actions/runs/39596656990), commit `9808239`: npm ci, typecheck, lint, test |
+| GitHub Actions backend | PASS trên Ubuntu / Node 24 | [Run 39596957933](https://github.com/kazuha11t/ShopAI-backend/actions/runs/39596957933), commit `1931664`: npm ci, migration, typecheck, lint, test, build |
 | Database phát triển | Đã migrate và seed | 20 sản phẩm; API phân trang trả dữ liệu |
 | Expo project | Đã liên kết | Project `4b642b27-8be1-453d-8113-75431a709943`, owner `trieu1912ts-team` |
 | Native OTA | Đã cấu hình | Android/iOS dùng runtime `1.0.0-rn0863`, channel `preview` |
 | Export Android | PASS | `artifacts/export-smoke`, bundle Hermes và 21 assets |
-| EAS Update | PASS trên NX725J | [Update preview](https://expo.dev/accounts/trieu1912ts-team/projects/shopai/updates/cd327d81-59d4-4f8c-bf83-22ace572d02c); app tải, reload và hiển thị update ID `01a15c80-03f0-7ea4-9c53-585140a3927b`, nguồn “Bản cập nhật OTA”; `artifacts/device-ota-applied.png` |
+| EAS Update | PASS trên NX725J | [Update preview](https://expo.dev/accounts/trieu1912ts-team/projects/shopai/updates/cd327d81-59d4-4f8c-bf83-22ace572d02c); app tải, reload và hiển thị update ID `01a15c80-03f0-7ea4-9c53-585140a3927b`, nguồn “Bản cập nhật OTA”; [ảnh OTA đã áp dụng](evidence/android-ota-applied.png) |
 | Gemini qua JWT/backend thật | PASS | `POST /api/ai/chat` trả lời tiếng Việt về tư vấn chọn điện thoại |
 | Thiết bị Android | Đã kết nối | NX725J, Android 15, arm64; ADB reverse cổng 3000 |
 | APK Android release | PASS | Gradle `BUILD SUCCESSFUL`; chữ ký được apksigner xác nhận. Bản thử ký debug đã cài cập nhật thành công, không gỡ app hoặc xóa dữ liệu |
@@ -35,7 +37,6 @@ Tài liệu này không thay thế video hoặc kiểm thử trên máy thật.
 ## Chưa có bằng chứng nghiệm thu
 
 - Nhận test crash/non-fatal trong Firebase Console.
-- Workflow GitHub Actions chạy xanh trên remote.
 - iOS cần môi trường macOS/Xcode; đường release trên máy hiện tại là Android.
 
 ## Bảo mật và giới hạn
