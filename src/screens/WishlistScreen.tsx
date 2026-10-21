@@ -1,20 +1,40 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/screens/WishlistScreen.tsx
 // Chương 6.10: Màn hình danh sách sản phẩm yêu thích (Wishlist)
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import ProductCard from '@components/ProductCard';
-import { MOCK_PRODUCTS } from '@data/mockProducts';
+import { useQueries } from '@tanstack/react-query';
+import { fetchProduct, apiErrorMessage } from '@services/api';
+import ShopButton from '@components/ShopButton';
 import { useWishlistStore } from '@store/useWishlistStore';
 import { COLORS, SIZES } from '@constants/theme';
 
 const WishlistScreen: React.FC = () => {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<any>();
   const productIds = useWishlistStore((state) => state.productIds);
-  const items = MOCK_PRODUCTS.filter((p) => productIds.includes(p.id));
+  const queries = useQueries({ queries: productIds.map(id => ({ queryKey: ['products', id], queryFn: () => fetchProduct(id) })) });
+  const items = queries.flatMap(query => query.data ? [query.data] : []);
+  const failedQuery = queries.find(query => query.isError);
+
+  if (queries.some(query => query.isPending)) {
+    return <SafeAreaView style={styles.safeArea}><View style={styles.emptyContainer}>
+      <ActivityIndicator accessibilityLabel="Đang tải sản phẩm yêu thích" color={COLORS.primary} />
+    </View></SafeAreaView>;
+  }
+
+  if (failedQuery) {
+    return <SafeAreaView style={styles.safeArea}><View style={styles.emptyContainer}>
+      <Text style={styles.emptyTitle}>Chưa tải được danh sách yêu thích</Text>
+      <Text style={styles.emptySubtitle}>{apiErrorMessage(failedQuery.error)}</Text>
+      <ShopButton title="Thử lại" onPress={() => { queries.filter(query => query.isError).forEach(query => { void query.refetch(); }); }} />
+    </View></SafeAreaView>;
+  }
 
   if (items.length === 0) {
     return (
@@ -50,7 +70,7 @@ const WishlistScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,

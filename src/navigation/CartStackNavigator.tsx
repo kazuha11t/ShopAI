@@ -43,6 +43,7 @@ const CartStackNavigator: React.FC<CartStackNavigatorProps> = ({ onGoShopping })
         component={CheckoutScreen}
         options={{
           title: 'Thanh toán & Giao hàng',
+          presentation: 'modal',
           headerBackTitle: 'Giỏ hàng',
         }}
       />

@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/screens/CartScreen.tsx
 // Chương 6: Màn hình Giỏ hàng đầy đủ - Zustand State, Thay đổi số lượng, Xóa, Đặt hàng
 
@@ -14,6 +15,7 @@ interface CartScreenProps {
 }
 
 const CartScreen: React.FC<CartScreenProps> = ({ onGoShopping }) => {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<any>();
   const items = useCartStore((state) => state.items);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
@@ -132,7 +134,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ onGoShopping }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,

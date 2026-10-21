@@ -73,3 +73,37 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+.local-signing/
+artifacts/
+.maestro-output/
+
+
+.local-migration-backup/
+lint-results.json
+*.log
+
+# Expo
+.expo
+dist/
+web-build/
+
+# Credentials and machine-local Firebase configuration
+.env
+.env.*
+!.env.example
+*.jks
+*.p12
+*.mobileprovision
+/android/app/google-services.json
+/ios/ShopAI/GoogleService-Info.plist
+
+# Local editor/command output and backups
+*.bak
+/ShopAI@0.0.1
+/eslint
+/npm
+/npx
+/shopai_structure.txt
+*.apk
+*.aab

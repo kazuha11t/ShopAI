@@ -1,9 +1,14 @@
-// src/screens/HomeScreen.tsx
+import { useThemedStyles } from '@hooks/useThemedStyles';
+﻿// src/screens/HomeScreen.tsx
 // Chương 2, 3, 4, 5, 6 & 7: Trang chủ ShopAI — 3 trạng thái UI thật (loading/data/error),
-// phân trang vô hạn (React Query), Dark Mode, Đa ngôn ngữ, Countdown, FlashList, GPS, Scanner
-
+// phÃ¢n trang vÃ´ háº¡n (React Query), Dark Mode, Äa ngÃ´n ngá»¯, Countdown, FlashList, GPS, Scanner
+import {
+  getCrashlytics,
+  setAttribute,
+  crash,
+} from '@react-native-firebase/crashlytics';
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, RefreshControl, ActivityIndicator, Alert, } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -20,6 +25,8 @@ import { useTheme } from '@contexts/ThemeContext';
 import { useCountdown } from '@hooks/useCountdown';
 import { useInfiniteProductsQuery } from '@hooks/useProductsQuery';
 import type { HomeStackParamList } from '@navigation/HomeStackNavigator';
+import { apiErrorMessage } from '@services/api';
+
 
 type HomeNavProp = NativeStackNavigationProp<HomeStackParamList, 'Home'>;
 
@@ -28,10 +35,29 @@ interface HomeScreenProps {
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<HomeNavProp>();
   const { colors, isDark, toggleTheme } = useTheme();
   const { t, i18n } = useTranslation();
-  const { formatted: countdownText } = useCountdown(2 * 60 * 60); // Flash sale 2 giờ
+  const { formatted: countdownText } = useCountdown(2 * 60 * 60); // Flash sale 2 giá»
+
+  React.useEffect(() => {
+    const crashlyticsInstance = getCrashlytics();
+
+    setAttribute(
+      crashlyticsInstance,
+      'shopai_crashlytics_test',
+      'initialized',
+    )
+      .then(() => console.log('[Crashlytics] SDK initialized'))
+      .catch((error: unknown) => {
+        console.error(
+          '[Crashlytics] Initialization check failed:',
+          error,
+        );
+      });
+  }, []);
+
 
   // Chương 2 (3 trạng thái UI) + Chương 6.5/6.8 (React Query + phân trang vô hạn)
   const {
@@ -85,10 +111,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
     return (
       <SafeAreaView style={[styles.safeArea, dynamicStyles.safeArea]}>
         <View style={styles.centerState}>
-          <Text style={styles.errorEmoji}>⚠️</Text>
+          <Text style={styles.errorEmoji}>{'\u26A0\uFE0F'}</Text>
           <Text style={[styles.errorTitle, { color: colors.text }]}>{t('home.errorTitle')}</Text>
           <Text style={[styles.errorDetail, { color: colors.textLight }]}>
-            {error instanceof Error ? error.message : String(error)}
+            {apiErrorMessage(error)}
           </Text>
           <ShopButton title={t('home.retry')} onPress={() => refetch()} style={styles.retryBtn} />
         </View>
@@ -100,7 +126,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   return (
     <SafeAreaView style={[styles.safeArea, dynamicStyles.safeArea]} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
-        {/* Header với thương hiệu, nút Dark Mode, Ngôn ngữ, Wishlist, Quét mã, Đăng xuất */}
+        {/* Header vá»›i thÆ°Æ¡ng hiá»‡u, nÃºt Dark Mode, NgÃ´n ngá»¯, Wishlist, QuÃ©t mÃ£, ÄÄƒng xuáº¥t */}
         <View style={[styles.header, dynamicStyles.header]}>
           <View>
             <Text style={styles.headerLogo}>{t('home.brand')}</Text>
@@ -108,13 +134,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
           </View>
           <View style={styles.headerActions}>
             <Pressable style={styles.iconToggle} onPress={toggleTheme} hitSlop={6}>
-              <Text style={styles.iconToggleText}>{isDark ? '☀️' : '🌙'}</Text>
+              <Text style={styles.iconToggleText}>{isDark ? '\u2600\uFE0F' : '\uD83C\uDF19'}</Text>
             </Pressable>
             <Pressable style={styles.iconToggle} onPress={toggleLanguage} hitSlop={6}>
               <Text style={styles.langToggleText}>{i18n.language === 'vi' ? 'VI' : 'EN'}</Text>
             </Pressable>
             <Pressable style={styles.iconToggle} onPress={() => navigation.navigate('Wishlist')} hitSlop={6}>
-              <Text style={styles.iconToggleText}>❤️</Text>
+              <Text style={styles.iconToggleText}>{'\u2764\uFE0F'}</Text>
             </Pressable>
           </View>
         </View>
@@ -122,7 +148,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
         <View style={styles.actionsRow}>
           {/* Chương 8: mở Nhân viên tư vấn AI */}
           <ShopButton
-            title="Hỏi AI 🤖"
+            title="Hỏi AI"
             onPress={() => navigation.navigate('AIChat')}
             style={styles.actionBtn}
           />
@@ -150,6 +176,51 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
             style={styles.actionBtn}
             variant="outline"
           />
+          {__DEV__ && (
+          <Pressable
+            onPress={() => {
+              Alert.alert(
+                'Kiểm tra Crashlytics',
+                'Bạn có muốn thực hiện crash thử nghiệm không?',
+                [
+                  { text: 'Hủy', style: 'cancel' },
+                  {
+                    text: 'Crash thử',
+                    style: 'destructive',
+                    onPress: () => {
+                      console.log('[Crashlytics] Crash callback entered');
+
+                      Alert.alert(
+                        'Đã vào callback',
+                        'Nếu thấy hộp thoại này, thao tác Crash thử đã được nhận.',
+                        [
+                          {
+                            text: 'Tiếp tục crash',
+                            onPress: () => {
+                              console.log('[Crashlytics] Calling native crash');
+                              crash(getCrashlytics());
+                            },
+                          },
+                        ],
+                      );
+                    },
+                  },
+                ],
+              );
+            }}
+            style={{
+              marginTop: 12,
+              padding: 14,
+              borderRadius: 8,
+              backgroundColor: '#B91C1C',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+              Test Crashlytics
+            </Text>
+          </Pressable>
+        )}
         </View>
 
         {/* Widget GPS Geolocation tính phí vận chuyển tự động (Chương 7) */}
@@ -190,6 +261,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
               />
             }
             onEndReachedThreshold={0.4}
+            ListEmptyComponent={<Text style={[styles.centerStateText, { color: colors.text }]}>Chưa có sản phẩm nào.</Text>}
             onEndReached={() => {
               if (hasNextPage && !isFetchingNextPage) fetchNextPage();
             }}
@@ -208,7 +280,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,

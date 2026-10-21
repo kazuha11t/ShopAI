@@ -1,4 +1,19 @@
 {
   "name": "ShopAI",
-  "displayName": "ShopAI"
+  "displayName": "ShopAI",
+  "slug": "shopai",
+  "version": "1.0.0",
+  "scheme": "shopai",
+  "extra": {
+    "eas": {
+      "projectId": "4b642b27-8be1-453d-8113-75431a709943"
+    }
+  },
+  "owner": "trieu1912ts-team",
+  "runtimeVersion": "1.0.0-rn0863",
+  "updates": {
+    "url": "https://u.expo.dev/4b642b27-8be1-453d-8113-75431a709943"
+  },
+  "android": { "package": "com.shopai" },
+  "ios": { "bundleIdentifier": "com.shopai" }
 }

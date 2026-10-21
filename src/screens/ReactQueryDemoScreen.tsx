@@ -1,8 +1,10 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 import React from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { useProductsQuery } from '@hooks/useProductsQuery';
 
 const ReactQueryDemoScreen = () => {
+  const styles = useThemedStyles(baseStyles);
   const {
     data,
     isLoading,
@@ -63,7 +65,7 @@ const ReactQueryDemoScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,

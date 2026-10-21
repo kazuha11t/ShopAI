@@ -1,0 +1,8 @@
+node_modules/
+android/
+ios/
+coverage/
+artifacts/
+lint-results.json
+.local-migration-backup/
+.local-signing/

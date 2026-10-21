@@ -1,16 +1,18 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/screens/ScannerScreen.tsx
 // Chương 7: Màn hình Quét mã vạch/QR thật bằng Vision Camera (MLKit Code Scanner) + Haptic Feedback
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Alert, Linking, Vibration, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { Camera, useCameraDevice, useCameraPermission, useCodeScanner, type Code } from 'react-native-vision-camera';
 import { COLORS, SIZES } from '@constants/theme';
 import ShopButton from '@components/ShopButton';
-import { MOCK_PRODUCTS } from '@data/mockProducts';
+import { fetchProduct, apiErrorMessage } from '@services/api';
 
 const ScannerScreen: React.FC = () => {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
   const device = useCameraDevice('back');
@@ -25,41 +27,24 @@ const ScannerScreen: React.FC = () => {
     }
   }, [hasPermission, permissionAsked, requestPermission]);
 
-  const handleDetectedCode = useCallback(
-    (value: string) => {
-      setIsScanning((currentlyScanning) => {
-        if (!currentlyScanning) return currentlyScanning;
-
-        // Haptic feedback khi bắt trúng mã (Chương 7.6)
-        Vibration.vibrate(40);
-
-        // Mã QR in cho sản phẩm có dạng "shopai://product/<id>" (xem thư mục qr-codes/)
-        const code = value.trim().replace(/^shopai:\/\/product\//i, '');
-        const found = MOCK_PRODUCTS.find((p) => p.id === code || p.name === code);
-        if (found) {
-          Alert.alert(
-            'Đã nhận diện mã vạch! 📷',
-            `Sản phẩm: ${found.name}\nGiá: ${found.price.toLocaleString('vi-VN')} đ`,
-            [
-              {
-                text: 'Xem chi tiết ngay',
-                onPress: () => navigation.replace('ProductDetail', { productId: found.id }),
-              },
-              { text: 'Quét tiếp', onPress: () => setIsScanning(true) },
-            ],
-          );
-        } else {
-          Alert.alert(
-            'Không khớp sản phẩm nào',
-            `Mã vừa quét: "${value}"\nKhông tìm thấy sản phẩm tương ứng trong kho ShopAI.`,
-            [{ text: 'Quét tiếp', onPress: () => setIsScanning(true) }],
-          );
-        }
-        return false;
-      });
-    },
-    [navigation],
-  );
+  const scanBusy = useRef(false);
+  const resumeScan = () => { scanBusy.current = false; setIsScanning(true); };
+  const handleDetectedCode = useCallback(async (value: string) => {
+    if (scanBusy.current) return;
+    scanBusy.current = true; setIsScanning(false);
+    const code = value.trim().replace(/^shopai:\/\/product\//i, '');
+    try {
+      if (!/^\d+$/.test(code)) throw new Error('Mã sản phẩm không hợp lệ.');
+      const found = await fetchProduct(code);
+      Vibration.vibrate(40);
+      Alert.alert('Đã nhận diện sản phẩm', found.name, [
+        { text: 'Xem chi tiết', onPress: () => navigation.replace('ProductDetail', { productId: found.id }) },
+        { text: 'Quét tiếp', onPress: resumeScan },
+      ], { cancelable: false });
+    } catch (error) {
+      Alert.alert('Không tìm được sản phẩm', apiErrorMessage(error), [{ text: 'Quét tiếp', onPress: resumeScan }], { cancelable: false });
+    }
+  }, [navigation]);
 
   // Chương 7.8: Code Scanner dùng MLKit native, chạy trên luồng riêng, trả kết quả về JS thread
   const codeScanner = useCodeScanner({
@@ -144,7 +129,7 @@ const ScannerScreen: React.FC = () => {
         <View style={styles.demoSheet}>
           <Text style={styles.demoTitle}>💡 Không có mã thật? Thử nhanh (Mock Barcode):</Text>
           <View style={styles.demoButtonsRow}>
-            {MOCK_PRODUCTS.slice(0, 3).map((p) => (
+            {['1', '2', '3'].map(id => ({ id })).map((p) => (
               <Pressable key={p.id} style={styles.demoCodeBtn} onPress={() => handleSimulateScan(p.id)}>
                 <Text style={styles.demoCodeText}>Quét mã #{p.id}</Text>
               </Pressable>
@@ -156,7 +141,7 @@ const ScannerScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#000000',

@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 ﻿// src/navigation/MainTabNavigator.tsx
 // Chương 5 & 6: Bottom Tab Navigator chứa HomeStack + CartStack + Huy hiệu giỏ hàng động (Zustand)
 
@@ -8,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import HomeStackNavigator from '@navigation/HomeStackNavigator';
 import CartStackNavigator from '@navigation/CartStackNavigator';
+import OrdersStackNavigator from './OrdersStackNavigator';
 import { useCartStore } from '@store/useCartStore';
 import { COLORS } from '@constants/theme';
 
@@ -27,6 +29,7 @@ const renderCartIcon = ({ focused, color }: { focused: boolean; color: string })
 );
 
 const MainTabNavigator: React.FC<MainTabNavigatorProps> = ({ onLogout }) => {
+  const styles = useThemedStyles(baseStyles);
   // Lấy số lượng sản phẩm động từ Zustand Store (Chương 6)
   const cartBadgeCount = useCartStore((state) => state.totalCount());
   // Edge-to-edge: cộng thêm chiều cao thanh điều hướng hệ thống để tab bar không bị đè
@@ -34,6 +37,7 @@ const MainTabNavigator: React.FC<MainTabNavigatorProps> = ({ onLogout }) => {
 
   return (
     <Tab.Navigator
+      initialRouteName="HomeTab"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
@@ -42,6 +46,7 @@ const MainTabNavigator: React.FC<MainTabNavigatorProps> = ({ onLogout }) => {
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
+      <Tab.Screen name="OrdersTab" component={OrdersStackNavigator} options={{ title: 'Đơn hàng', tabBarIcon: renderCartIcon }} />
       <Tab.Screen
         name="HomeTab"
         options={{
@@ -70,7 +75,7 @@ const MainTabNavigator: React.FC<MainTabNavigatorProps> = ({ onLogout }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   tabBar: {
     paddingTop: 6,
     borderTopWidth: 1,

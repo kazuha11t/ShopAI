@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/screens/OrdersScreen.tsx
 // Chương 6: Quản lý lịch sử đơn hàng đã đặt (PENDING / PAID)
 
@@ -6,11 +7,18 @@ import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SIZES } from '@constants/theme';
-import { useOrderStore, Order } from '@store/useOrderStore';
+import { useQuery } from '@tanstack/react-query';
+import { fetchOrders, apiErrorMessage, type ServerOrder as Order } from '@services/api';
+import ShopButton from '@components/ShopButton';
+import { useFocusEffect } from '@react-navigation/native';
 
 const OrdersScreen: React.FC = () => {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<any>();
-  const orders = useOrderStore((state) => state.orders);
+  const query = useQuery({ queryKey: ['orders'], queryFn: fetchOrders });
+  const { refetch } = query;
+  useFocusEffect(React.useCallback(() => { void refetch(); }, [refetch]));
+  const orders = query.data ?? [];
 
   const renderOrderItem = ({ item }: { item: Order }) => {
     const formattedTotal = new Intl.NumberFormat('vi-VN', {
@@ -59,6 +67,8 @@ const OrdersScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+      {query.isPending && <Text>Đang tải đơn hàng…</Text>}
+      {query.isError && <View><Text>{apiErrorMessage(query.error)}</Text><ShopButton title="Thử lại" onPress={() => { query.refetch(); }} /></View>}
       {orders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>📦</Text>
@@ -70,6 +80,8 @@ const OrdersScreen: React.FC = () => {
       ) : (
         <FlatList
           data={orders}
+          refreshing={query.isRefetching}
+          onRefresh={() => { query.refetch(); }}
           keyExtractor={(item) => item.id}
           renderItem={renderOrderItem}
           contentContainerStyle={styles.listContent}
@@ -79,7 +91,7 @@ const OrdersScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,

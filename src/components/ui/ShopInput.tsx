@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/components/ui/ShopInput.tsx
 // Chương 3: Input Atom có label, validation error, secureTextEntry
 
@@ -35,6 +36,7 @@ const ShopInput: React.FC<ShopInputProps> = ({
   keyboardType = 'default',
   editable = true,
 }) => {
+  const styles = useThemedStyles(baseStyles);
   const [focused, setFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -52,6 +54,7 @@ const ShopInput: React.FC<ShopInputProps> = ({
         ]}
       >
         <TextInput
+          accessibilityLabel={label}
           style={styles.input}
           placeholder={placeholder}
           placeholderTextColor={COLORS.textLight}
@@ -78,7 +81,7 @@ const ShopInput: React.FC<ShopInputProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: {
     marginBottom: SIZES.md,
   },

@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 import React from 'react';
 import {
   FlatList,
@@ -17,6 +18,7 @@ import {
 import { AppDispatch, RootState } from '@store/redux/store';
 
 const ReduxCartDemoScreen: React.FC = () => {
+  const styles = useThemedStyles(baseStyles);
   const dispatch = useDispatch<AppDispatch>();
 
   const items = useSelector((state: RootState) => state.cart.items);
@@ -113,7 +115,7 @@ const ReduxCartDemoScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,

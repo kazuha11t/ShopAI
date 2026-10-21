@@ -1,0 +1,19 @@
+appId: com.shopai
+---
+- launchApp:
+    clearState: false
+    stopApp: false
+- openLink: "shopai://"
+- runFlow:
+    when:
+      visible: "Thoát|Đăng xuất"
+    commands:
+      - tapOn: "Thoát|Đăng xuất"
+- assertVisible: "Đăng nhập để tiếp tục trải nghiệm"
+- tapOn:
+    text: "Đăng nhập ngay"
+    index: 0
+- extendedWaitUntil:
+    visible: "Hỏi AI"
+    timeout: 20000
+- assertVisible: "Giỏ hàng.*"

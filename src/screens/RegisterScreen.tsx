@@ -1,56 +1,94 @@
-// src/screens/RegisterScreen.tsx
-// Chương 5: Màn hình Đăng ký (AuthStack) hoàn thiện
+import { useThemedStyles } from '@hooks/useThemedStyles';
+import { authenticate, apiErrorMessage } from '@services/api';
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import {
+  Alert,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+} from 'react-native';
+
 import ShopButton from '@components/ShopButton';
 import ShopInput from '@components/ui/ShopInput';
 import { COLORS, SIZES } from '@constants/theme';
 import { registerSchema, extractFieldErrors } from '@utils/validation';
 
 interface RegisterScreenProps {
-  onRegistered: (token: string) => void;
+  onRegistered: (token: string) => void | Promise<void>;
   onGoLogin: () => void;
 }
 
-const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegistered, onGoLogin }) => {
+const RegisterScreen: React.FC<RegisterScreenProps> = ({
+  onRegistered,
+  onGoLogin,
+}) => {
+  const styles = useThemedStyles(baseStyles);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+
   const [errors, setErrors] = useState<{
     name?: string;
     email?: string;
     password?: string;
     confirm?: string;
   }>({});
+
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
-    // Chương 6.7: Validate bằng Zod (bao gồm .refine kiểm tra khớp mật khẩu)
-    const result = extractFieldErrors(registerSchema, { name, email, password, confirm });
+    const result = extractFieldErrors(registerSchema, {
+      name,
+      email,
+      password,
+      confirm,
+    });
+
     if (!result.success) {
       setErrors(result.errors);
       return false;
     }
+
     setErrors({});
     return true;
   };
 
-  const handleRegister = () => {
-    if (!validate()) return;
+  const handleRegister = async () => {
+    if (loading || !validate()) {
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const token = await authenticate('register', { email, password, name });
+      await onRegistered(token);
+    } catch (error) {
+      console.warn('[register] Đăng ký thất bại');
+
+      Alert.alert(
+        'Đăng ký thất bại',
+        apiErrorMessage(error),
+      );
+    } finally {
       setLoading(false);
-      onRegistered('mock_registered_token_789');
-    }, 1200);
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Tạo tài khoản</Text>
-        <Text style={styles.subtitle}>Đăng ký để nhận ưu đãi mua sắm trên ShopAI</Text>
+        <Text style={styles.subtitle}>
+          Đăng ký để nhận ưu đãi mua sắm trên ShopAI
+        </Text>
       </View>
 
       <View style={styles.formCard}>
@@ -61,6 +99,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegistered, onGoLogin
           onChangeText={setName}
           error={errors.name}
         />
+
         <ShopInput
           label="Email"
           placeholder="you@example.com"
@@ -70,6 +109,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegistered, onGoLogin
           autoCapitalize="none"
           keyboardType="email-address"
         />
+
         <ShopInput
           label="Mật khẩu"
           placeholder="Ít nhất 6 ký tự"
@@ -78,6 +118,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegistered, onGoLogin
           error={errors.password}
           secureTextEntry
         />
+
         <ShopInput
           label="Xác nhận mật khẩu"
           placeholder="Nhập lại mật khẩu"
@@ -97,14 +138,15 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegistered, onGoLogin
 
       <Pressable onPress={onGoLogin} style={styles.loginLink}>
         <Text style={styles.loginLinkText}>
-          Đã có tài khoản? <Text style={styles.loginLinkBold}>Đăng nhập</Text>
+          Đã có tài khoản?{' '}
+          <Text style={styles.loginLinkBold}>Đăng nhập</Text>
         </Text>
       </Pressable>
     </ScrollView>
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: COLORS.background,

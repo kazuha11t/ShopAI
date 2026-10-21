@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/screens/OrderDetailScreen.tsx
 // Chương 6: Chi tiết đơn hàng + Nút thanh toán giả lập PENDING -> PAID
 
@@ -7,25 +8,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { COLORS, SIZES } from '@constants/theme';
 import ShopButton from '@components/ShopButton';
-import { useOrderStore } from '@store/useOrderStore';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchOrder, payOrder, apiErrorMessage } from '@services/api';
 
 type OrderDetailParams = {
   OrderDetail: { orderId: string };
 };
 
 const OrderDetailScreen: React.FC = () => {
+  const styles = useThemedStyles(baseStyles);
   const route = useRoute<RouteProp<OrderDetailParams, 'OrderDetail'>>();
   const navigation = useNavigation<any>();
   const { orderId } = route.params;
 
-  const order = useOrderStore((state) => state.getOrderById(orderId));
-  const payOrder = useOrderStore((state) => state.payOrder);
+  const client = useQueryClient();
+  const query = useQuery({ queryKey: ['orders', orderId], queryFn: () => fetchOrder(orderId) });
+  const order = query.data;
+  const payment = useMutation({
+    mutationFn: () => payOrder(orderId),
+    onSuccess: data => {
+      client.setQueryData(['orders', orderId], data);
+      void client.invalidateQueries({ queryKey: ['orders'] });
+      Vibration.vibrate(50);
+      Alert.alert('Thanh toán giả lập thành công', 'Đơn hàng đã chuyển sang PAID trên máy chủ. Không thu tiền thật.');
+    },
+    onError: error => Alert.alert('Chưa thanh toán được', apiErrorMessage(error)),
+  });
 
   if (!order) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>Không tìm thấy đơn hàng #{orderId}</Text>
+          <Text style={styles.errorText}>{query.isPending ? 'Đang tải đơn hàng…' : apiErrorMessage(query.error)}</Text>
+          <ShopButton title="Thử lại" onPress={() => { query.refetch(); }} />
           <ShopButton title="Quay lại" onPress={() => navigation.goBack()} />
         </View>
       </SafeAreaView>
@@ -45,10 +60,7 @@ const OrderDetailScreen: React.FC = () => {
   }).format(order.shippingFee);
 
   const handlePayNow = () => {
-    // Haptic feedback khi thanh toán thành công (Chương 7)
-    Vibration.vibrate(50);
-    payOrder(order.id);
-    Alert.alert('Thanh toán thành công! ✅', 'Đơn hàng đã được chuyển sang trạng thái PAID.');
+    if (!payment.isPending) payment.mutate();
   };
 
   return (
@@ -134,6 +146,7 @@ const OrderDetailScreen: React.FC = () => {
         <View style={styles.bottomBar}>
           <ShopButton
             title="Thanh toán ngay (Giả lập Bank/QR)"
+            isLoading={payment.isPending}
             onPress={handlePayNow}
           />
         </View>
@@ -142,7 +155,7 @@ const OrderDetailScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,

@@ -1,24 +1,19 @@
-// src/store/useAuthStore.ts
-// Chương 8 (Bước 2): Zustand + Hardware Keystore — Token được mã hoá bằng khoá phần cứng
-// (Android Keystore / iOS Keychain + Secure Enclave) thay vì nằm trong RAM hay AsyncStorage.
-//
-// Ghi chú: giáo trình dùng expo-secure-store, nhưng Expo SDK chưa hỗ trợ RN 0.87 nên ShopAI
-// dùng react-native-keychain — cùng cơ chế Keystore/Keychain, API khác tên.
 
 import { create } from 'zustand';
 import * as Keychain from 'react-native-keychain';
+import { queryClient } from '@services/queryClient';
+import { useCartStore } from './useCartStore';
 
 const TOKEN_SERVICE = 'SHOP_ACCESS_TOKEN';
 
 interface AuthState {
   token: string | null;
-  isLoading: boolean; // Đang kiểm tra Keystore lúc mở app
-  // Cổng sinh trắc học: false = đang khoá. Đặt trong Store (theo gợi ý Bước 5) để
-  // user vừa gõ mật khẩu xong không bị hỏi Face ID thêm lần nữa.
+  isLoading: boolean;
   isUnlocked: boolean;
   login: (newToken: string) => Promise<void>;
   logout: () => Promise<void>;
-  checkLocalToken: () => Promise<void>; // Chạy lúc mở app
+  expireSession: () => Promise<void>;
+  checkLocalToken: () => Promise<void>;
   setIsUnlocked: (value: boolean) => void;
 }
 
@@ -27,39 +22,85 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
   isUnlocked: false,
 
-  // Lưu token vào RAM VÀ xuống Keystore mã hoá phần cứng
   login: async (newToken) => {
-    try {
-      await Keychain.setGenericPassword('shopai', newToken, {
+    const normalizedToken = newToken.trim();
+
+    if (!normalizedToken) {
+      throw new Error('Token đăng nhập không hợp lệ.');
+    }
+
+    const saved = await Keychain.setGenericPassword(
+      'shopai',
+      normalizedToken,
+      {
         service: TOKEN_SERVICE,
-        // Chỉ đọc được khi máy đã mở khoá, không đồng bộ sang thiết bị khác qua iCloud
         accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-      });
-    } catch (e) {
-      console.log('[auth] Lỗi ghi Keystore:', e);
+      },
+    );
+
+    if (!saved) {
+      throw new Error('Không thể lưu phiên đăng nhập an toàn.');
     }
-    set({ token: newToken, isUnlocked: true });
+
+    set({
+      token: normalizedToken,
+      isUnlocked: true,
+      isLoading: false,
+    });
   },
 
-  // Huỷ token ở cả RAM lẫn Keystore
   logout: async () => {
-    try {
-      await Keychain.resetGenericPassword({ service: TOKEN_SERVICE });
-    } catch (e) {
-      console.log('[auth] Lỗi xoá Keystore:', e);
+    const removed = await Keychain.resetGenericPassword({
+      service: TOKEN_SERVICE,
+    });
+
+    if (!removed) {
+      throw new Error(
+        'Không thể xác nhận đã xóa thông tin đăng nhập an toàn.',
+      );
     }
-    set({ token: null, isUnlocked: false });
+
+    queryClient.clear();
+    useCartStore.getState().clearCart();
+    set({
+      token: null,
+      isUnlocked: false,
+      isLoading: false,
+    });
   },
 
-  // Móc token từ Keystore lên khi app vừa khởi động lại
+  expireSession: async () => {
+    set({ token: null, isUnlocked: false, isLoading: false });
+    queryClient.clear();
+    useCartStore.getState().clearCart();
+    try { await Keychain.resetGenericPassword({ service: TOKEN_SERVICE }); }
+    catch { console.warn('[auth] Could not remove expired credentials'); }
+  },
+
   checkLocalToken: async () => {
+    set({ isLoading: true });
+
     try {
-      const credentials = await Keychain.getGenericPassword({ service: TOKEN_SERVICE });
-      if (credentials) {
-        set({ token: credentials.password }); // isUnlocked vẫn false -> phải qua cổng sinh trắc học
+      const credentials = await Keychain.getGenericPassword({
+        service: TOKEN_SERVICE,
+      });
+
+      if (credentials && credentials.password.trim()) {
+        set({
+          token: credentials.password,
+          isUnlocked: false,
+        });
+      } else {
+        set({
+          token: null,
+          isUnlocked: false,
+        });
       }
-    } catch (e) {
-      console.log('[auth] Lỗi đọc Keystore:', e);
+    } catch (error) {
+      console.error('[auth] Không thể đọc Keychain:', error);
+
+      // Không xóa token hiện có trong Zustand khi Keychain gặp lỗi.
+      // Trạng thái tải vẫn được kết thúc ở finally.
     } finally {
       set({ isLoading: false });
     }

@@ -1,94 +1,137 @@
-﻿// App.tsx
-// Chương 5 & 6: State Machine Điều hướng bảo mật + Deep Linking + Redux Toolkit & React Query Provider
-// Chương 8: Token trong Keystore (useAuthStore) + Cổng sinh trắc học + App Lock
+﻿
+import React, { useCallback, useEffect } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  StatusBar,
+  StyleSheet,
+  View,
+} from 'react-native';
 
-import React, { useEffect } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
-import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  LinkingOptions,
+  DefaultTheme,
+  DarkTheme,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as ReduxProvider } from 'react-redux';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '@contexts/ThemeContext';
+import {
+  QueryClientProvider,
+} from '@tanstack/react-query';
+
+import { ThemeProvider, useTheme } from '@contexts/ThemeContext';
 import { store } from '@store/redux/store';
 import './src/i18n';
+
 import LoginScreen from '@screens/LoginScreen';
 import RegisterScreen from '@screens/RegisterScreen';
-import MainTabNavigator from '@navigation/MainTabNavigator';
+import MainDrawerNavigator from '@navigation/MainDrawerNavigator';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BiometricGateScreen from '@screens/BiometricGateScreen';
+
 import { useAuthStore } from '@store/useAuthStore';
 import { useAppLock } from '@hooks/useAppLock';
 import { COLORS } from '@constants/theme';
+import { queryClient } from '@services/queryClient';
 
-const queryClient = new QueryClient();
 const AuthStack = createNativeStackNavigator();
 
-// Cấu hình Deep Linking: shopai://product/1 -> tự động mở ProductDetail
+// Giữ cấu hình Deep Linking hiện tại.
 const linking: LinkingOptions<any> = {
   prefixes: ['shopai://'],
-  config: {
-    screens: {
-      HomeTab: {
-        screens: {
-          ProductDetail: 'product/:productId',
-        },
-      },
-      CartTab: {
-        screens: {
-          CartMain: 'cart',
-          Checkout: 'checkout',
-          Orders: 'orders',
-        },
-      },
-    },
-  },
+  config: { screens: { Shop: { screens: {
+    HomeTab: { screens: { Home: '', ProductDetail: 'product/:productId' } },
+    CartTab: { screens: { CartMain: 'cart', Checkout: 'checkout' } },
+    OrdersTab: { screens: { Orders: 'orders', OrderDetail: 'orders/:orderId' } },
+  } }, Categories: 'categories' } },
 };
 
+function ThemedNavigation({ children }: React.PropsWithChildren) {
+  const { isDark } = useTheme();
+  return <NavigationContainer linking={linking} theme={isDark ? DarkTheme : DefaultTheme}>
+    <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    {children}
+  </NavigationContainer>;
+}
+
 function App(): React.JSX.Element {
-  // Selector riêng cho từng trường: App chỉ re-render khi đúng trường đó đổi
   const token = useAuthStore((state) => state.token);
   const isLoading = useAuthStore((state) => state.isLoading);
   const isUnlocked = useAuthStore((state) => state.isUnlocked);
+
   const login = useAuthStore((state) => state.login);
   const logout = useAuthStore((state) => state.logout);
-  const checkLocalToken = useAuthStore((state) => state.checkLocalToken);
-  const setIsUnlocked = useAuthStore((state) => state.setIsUnlocked);
+  const checkLocalToken = useAuthStore(
+    (state) => state.checkLocalToken,
+  );
+  const setIsUnlocked = useAuthStore(
+    (state) => state.setIsUnlocked,
+  );
 
-  // Bước 3: móc token từ Keystore ngay khi App vừa khởi chạy
+  // Khôi phục phiên đăng nhập từ Keychain khi ứng dụng khởi động.
   useEffect(() => {
-    checkLocalToken();
+    checkLocalToken().catch((error: unknown) => {
+      console.warn('[auth] Khôi phục phiên đăng nhập thất bại:', error);
+    });
   }, [checkLocalToken]);
 
-  // Bước 5b: tự khoá lại nếu App ở nền quá APP_LOCK_TIMEOUT_MS (Phần 8.12)
-  useAppLock({ isUnlocked, setIsUnlocked });
+  // Tự khóa khi ứng dụng ở nền quá thời gian quy định.
+  useAppLock({
+    isUnlocked,
+    setIsUnlocked,
+  });
+
+  // Giữ callback ổn định giữa các lần render.
+  const handleUnlock = useCallback(() => {
+    setIsUnlocked(true);
+  }, [setIsUnlocked]);
+
+  // Xử lý lỗi nếu không thể xóa thông tin đăng nhập an toàn.
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.warn('[auth] Đăng xuất thất bại:', error);
+
+      Alert.alert(
+        'Đăng xuất thất bại',
+        'Không thể xác nhận đã xóa thông tin đăng nhập an toàn. Vui lòng thử lại.',
+      );
+    }
+  }, [logout]);
 
   const renderContent = () => {
-    // Đang lục Keystore -> vòng xoay Loading tràn màn hình
     if (isLoading) {
       return (
         <View style={styles.loading}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator
+            size="large"
+            color={COLORS.primary}
+          />
         </View>
       );
     }
 
-    // Bước 5: CÓ token (đăng nhập từ trước) nhưng chưa vượt cổng -> chặn ở đây.
-    // Chưa đăng nhập thì đi thẳng vào Login.
-    if (token != null && !isUnlocked) {
-      return <BiometricGateScreen onUnlock={() => setIsUnlocked(true)} />;
+    // Có token nhưng chưa xác thực sinh trắc học.
+    if (token !== null && !isUnlocked) {
+      return <BiometricGateScreen onUnlock={handleUnlock} />;
     }
 
     return (
-      <NavigationContainer linking={linking}>
-        {token == null ? (
-          // ================= LUỒNG AUTH =================
-          // Người dùng chưa đăng nhập chỉ được xem Login và Register
-          <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+      <ThemedNavigation>
+        {token === null ? (
+          <AuthStack.Navigator
+            screenOptions={{ headerShown: false }}
+          >
             <AuthStack.Screen name="Login">
               {({ navigation }) => (
                 <LoginScreen
                   onLogin={login}
-                  onGoRegister={() => navigation.navigate('Register')}
+                  onGoRegister={() =>
+                    navigation.navigate('Register')
+                  }
                 />
               )}
             </AuthStack.Screen>
@@ -97,31 +140,32 @@ function App(): React.JSX.Element {
               {({ navigation }) => (
                 <RegisterScreen
                   onRegistered={login}
-                  onGoLogin={() => navigation.navigate('Login')}
+                  onGoLogin={() =>
+                    navigation.navigate('Login')
+                  }
                 />
               )}
             </AuthStack.Screen>
           </AuthStack.Navigator>
         ) : (
-          // ================= LUỒNG CHÍNH =================
-          // Người dùng đã có Token -> Cây điều hướng Bottom Tab được kích hoạt
-          <MainTabNavigator onLogout={logout} />
+          <MainDrawerNavigator onLogout={handleLogout} />
         )}
-      </NavigationContainer>
+      </ThemedNavigation>
     );
   };
 
   return (
-    <ReduxProvider store={store}>
-      <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
-          <ThemeProvider>
-            <StatusBar barStyle="dark-content" />
-            {renderContent()}
-          </ThemeProvider>
-        </SafeAreaProvider>
-      </QueryClientProvider>
-    </ReduxProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <ReduxProvider store={store}>
+            <ThemeProvider>
+              {renderContent()}
+            </ThemeProvider>
+          </ReduxProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

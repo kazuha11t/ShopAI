@@ -1,7 +1,8 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/screens/CheckoutScreen.tsx
 // Chương 6: Màn hình Đặt hàng & Xác nhận thanh toán
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Vibration } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -9,17 +10,22 @@ import { COLORS, SIZES } from '@constants/theme';
 import ShopButton from '@components/ShopButton';
 import ShopInput from '@components/ui/ShopInput';
 import { useCartStore } from '@store/useCartStore';
-import { useOrderStore } from '@store/useOrderStore';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { createOrder, quoteOrder, apiErrorMessage } from '@services/api';
 import { useLocation } from '@hooks/useLocation';
 import { checkoutSchema, extractFieldErrors } from '@utils/validation';
 import { applyVoucherCode, VoucherResult } from '@constants/vouchers';
 
 const CheckoutScreen: React.FC = () => {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<any>();
   const items = useCartStore((state) => state.items);
   const clearCart = useCartStore((state) => state.clearCart);
   const rawTotal = useCartStore((state) => state.totalPrice());
-  const createOrder = useOrderStore((state) => state.createOrder);
+  const client = useQueryClient();
+  const mutation = useMutation({ mutationFn: createOrder });
+  const request = useRef({ signature: '', id: '' });
+  const inFlight = useRef(false);
 
   const { distanceKm, shippingFee, error: locationError } = useLocation();
 
@@ -38,18 +44,20 @@ const CheckoutScreen: React.FC = () => {
     setVoucherResult(result);
   };
 
-  const itemDiscount = voucherResult?.itemDiscount ?? 0;
-  const shippingDiscount = voucherResult?.shippingDiscount ?? 0;
-  const finalShippingFee = Math.max(shippingFee - shippingDiscount, 0);
-  const grandTotal = Math.max(rawTotal - itemDiscount + finalShippingFee, 0);
+  const quoteInput = { items: items.map(item => ({ productId: Number(item.id), quantity: item.quantity })), voucherCode: voucherResult?.voucher?.code };
+  const quote = useQuery({ queryKey: ['checkout-quote', quoteInput], queryFn: () => quoteOrder(quoteInput), enabled: items.length > 0, staleTime: 0 });
+  const itemDiscount = quote.data?.discount ?? 0;
+  const finalShippingFee = quote.data?.shippingFee ?? 25000;
+  const grandTotal = quote.data?.totalAmount ?? 0;
 
   const money = (v: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
 
-  const formattedSubtotal = money(rawTotal);
+  const formattedSubtotal = money(quote.data?.subtotal ?? rawTotal);
   const formattedShipping = money(finalShippingFee);
   const formattedGrandTotal = money(grandTotal);
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
+    if (inFlight.current || !quote.data || quote.isFetching || quote.isError || !items.length) return;
     // Chương 6.7: Validate form giao hàng bằng Zod
     const result = extractFieldErrors(checkoutSchema, { name, phone, address });
     if (!result.success) {
@@ -59,47 +67,35 @@ const CheckoutScreen: React.FC = () => {
     }
     setErrors({});
 
+    inFlight.current = true;
     setSubmitting(true);
-    // Haptic feedback khi đặt hàng thành công (Chương 7)
-    Vibration.vibrate([0, 50, 50, 50]);
-
-    setTimeout(() => {
-      const orderId = createOrder({
-        items,
-        totalAmount: grandTotal,
-        shippingFee: finalShippingFee,
-        customerName: name,
-        customerPhone: phone,
-        customerAddress: address,
-      });
-
+    const payload = { ...quoteInput, expectedTotal: quote.data.totalAmount, customerName: name, customerPhone: phone, customerAddress: address };
+    const signature = JSON.stringify(payload);
+    if (request.current.signature !== signature) request.current = {
+      signature, id: 'checkout-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+    };
+    try {
+      const order = await mutation.mutateAsync({ ...payload, requestId: request.current.id });
       clearCart();
+      client.setQueryData(['orders', order.id], order);
+      await client.invalidateQueries({ queryKey: ['orders'] });
+      void client.invalidateQueries({ queryKey: ['products'] });
+      Vibration.vibrate([0, 50, 50, 50]);
+      navigation.replace('OrderDetail', { orderId: order.id });
+    } catch (error) {
+      Alert.alert('Chưa đặt được hàng', apiErrorMessage(error));
+    } finally {
+      inFlight.current = false;
       setSubmitting(false);
-
-      Alert.alert(
-        'Đặt hàng thành công! 🎉',
-        `Mã đơn hàng của bạn là #${orderId}. Đơn đang ở trạng thái PENDING.`,
-        [
-          {
-            text: 'Xem chi tiết đơn',
-            onPress: () => {
-              navigation.replace('OrderDetail', { orderId });
-            },
-          },
-          {
-            text: 'Về trang chủ',
-            onPress: () => {
-              navigation.navigate('HomeTab');
-            },
-          },
-        ],
-      );
-    }, 800);
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.container}>
+        {quote.isPending && items.length > 0 && <Text>Đang kiểm tra giá và tồn kho…</Text>}
+        {quote.isError && <View><Text>{apiErrorMessage(quote.error)}</Text><ShopButton title="Thử lại báo giá" onPress={() => { quote.refetch(); }} /></View>}
+        <Text>Phí giao hàng của đơn do máy chủ xác nhận (25.000đ trước ưu đãi). GPS chỉ là ước tính khoảng cách.</Text>
         {/* Khối thông tin người nhận */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>📍 Địa chỉ nhận hàng</Text>
@@ -200,13 +196,14 @@ const CheckoutScreen: React.FC = () => {
           title={submitting ? 'Đang tạo đơn hàng...' : 'Xác nhận Đặt Hàng'}
           onPress={handleConfirmOrder}
           isLoading={submitting}
+            disabled={!quote.data || quote.isFetching || quote.isError || !items.length}
         />
       </View>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   locationWarning: {
     fontSize: 12,
     color: '#AD4E00',

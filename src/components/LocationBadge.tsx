@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/components/LocationBadge.tsx
 // Chương 7: Hiển thị khoảng cách và phí ship tính theo vị trí GPS thực tế
 
@@ -11,6 +12,7 @@ interface LocationBadgeProps {
 }
 
 const LocationBadge: React.FC<LocationBadgeProps> = ({ onPress }) => {
+  const styles = useThemedStyles(baseStyles);
   const { distanceKm, shippingFee, loading, error, refreshLocation, openLocationSettings } = useLocation();
 
   const formattedFee = new Intl.NumberFormat('vi-VN', {
@@ -63,7 +65,7 @@ const LocationBadge: React.FC<LocationBadgeProps> = ({ onPress }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',

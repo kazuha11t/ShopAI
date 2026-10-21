@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/components/ProductCard.tsx
 // Chương 4: UI/UX Component hiển thị Card sản phẩm cho Grid 2 cột
 
@@ -20,6 +21,7 @@ interface ProductCardProps {
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) => {
+  const styles = useThemedStyles(baseStyles);
   const isWishlisted = useWishlistStore((state) => state.isWishlisted(product.id));
   const toggleWishlist = useWishlistStore((state) => state.toggleWishlist);
 
@@ -77,7 +79,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radius,
@@ -151,4 +153,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ProductCard;
+export default React.memo(ProductCard);

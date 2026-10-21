@@ -14,8 +14,27 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+        classpath("com.google.gms:google-services:4.4.4")
+        classpath("com.google.firebase:firebase-crashlytics-gradle:3.0.6")
     }
 }
 
 apply plugin: "com.facebook.react.rootproject"
+apply plugin: "expo-root-project"
+
+// Use the same installed NDK for Expo libraries and the React Native app.
+subprojects { subproject ->
+    def limitNativeJobs = {
+        subproject.android.defaultConfig.externalNativeBuild.cmake.arguments(
+            "-DCMAKE_JOB_POOLS=shopai_compile=2;shopai_link=1",
+            "-DCMAKE_JOB_POOL_COMPILE=shopai_compile",
+            "-DCMAKE_JOB_POOL_LINK=shopai_link"
+        )
+    }
+    subproject.plugins.withId("com.android.library") {
+        subproject.android.ndkVersion = rootProject.ext.ndkVersion
+        limitNativeJobs()
+    }
+    subproject.plugins.withId("com.android.application") { limitNativeJobs() }
+}

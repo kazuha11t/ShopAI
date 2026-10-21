@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/components/ShopButton.tsx
 // Chương 3: Atomic Design — Atom cơ bản, nút bấm tái sử dụng
 
@@ -28,10 +29,14 @@ const ShopButton: React.FC<ShopButtonProps> = ({
   style,
   variant = 'primary',
 }) => {
+  const styles = useThemedStyles(baseStyles);
   const isDisabled = disabled || isLoading;
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: isDisabled, busy: isLoading }}
       onPress={onPress}
       disabled={isDisabled}
       style={({ pressed }) => [
@@ -64,7 +69,7 @@ const ShopButton: React.FC<ShopButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   button: {
     height: SIZES.buttonHeight,
     borderRadius: SIZES.radius,

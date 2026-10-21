@@ -30,12 +30,13 @@ export const useCartStore = create<CartState>()(
       items: [],
 
       addItem: (product: Product) => {
+        if (!Number.isSafeInteger(product.price) || product.price < 0) return;
         set((state) => {
           const existing = state.items.find((i) => i.id === product.id);
           if (existing) {
             return {
               items: state.items.map((i) =>
-                i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i,
+                i.id === product.id ? { ...i, quantity: Math.min(99, i.quantity + 1) } : i,
               ),
             };
           }
@@ -61,11 +62,12 @@ export const useCartStore = create<CartState>()(
       },
 
       updateQuantity: (id: string, delta: number) => {
+        if (!Number.isInteger(delta)) return;
         set((state) => ({
           items: state.items
             .map((i) => {
               if (i.id === id) {
-                const newQty = i.quantity + delta;
+                const newQty = Math.min(99, i.quantity + delta);
                 return newQty > 0 ? { ...i, quantity: newQty } : null;
               }
               return i;

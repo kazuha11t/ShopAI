@@ -35,12 +35,9 @@ Bạn: "Dạ mình là nhân viên ShopAI, mình không thể trả lời vấn 
 
 /** Cấu hình sinh nội dung — xem Phần 8.9 để hiểu từng tham số. */
 export const GEMINI_GENERATION_CONFIG = {
-  temperature: 0.4, // Cân bằng: đủ tự nhiên nhưng không bịa lung tung
-  maxOutputTokens: 200, // Cái phanh cho ví tiền (Phần 8.11)
+  temperature: 0.4,
+  maxOutputTokens: 512,
   topP: 0.9,
-  // Model Flash mới có bước "suy nghĩ" ngầm, ăn vào maxOutputTokens làm câu trả lời bị cắt cụt.
-  // Chatbot bán hàng không cần suy luận sâu -> tắt hẳn để rẻ và nhanh hơn.
-  thinkingConfig: { thinkingBudget: 0 },
 };
 
 /**

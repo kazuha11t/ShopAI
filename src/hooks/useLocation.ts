@@ -56,57 +56,89 @@ export function useLocation() {
   const errorRef = useRef<LocationError | null>(null);
   const appState = useRef<import('react-native').AppStateStatus>(AppState.currentState as import('react-native').AppStateStatus);
 
-  const updateError = (next: LocationError | null) => {
+
+  const updateError = useCallback((next: LocationError | null) => {
     errorRef.current = next;
     setError(next);
-  };
+  }, []);
 
-  const requestLocationPermission = async (): Promise<boolean> => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Quyền vị trí ShopAI',
-            message: 'ShopAI cần quyền truy cập vị trí để ước tính chi phí giao hàng tận nhà.',
-            buttonNeutral: 'Hỏi lại sau',
-            buttonNegative: 'Hủy',
-            buttonPositive: 'Đồng ý',
-          },
-        );
-
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          setHasPermission(true);
-          return true;
-        }
-        setHasPermission(false);
-        if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-          updateError(makeLocationError('permission_blocked'));
-          Alert.alert(
-            'Quyền Vị Trí Bị Chặn',
-            'Bạn đã tắt vĩnh viễn quyền vị trí. Vui lòng vào Cài đặt để kích hoạt.',
-            [
-              { text: 'Để sau', style: 'cancel' },
-              { text: 'Mở Cài đặt', onPress: () => Linking.openSettings() },
-            ],
+  const requestLocationPermission = useCallback(
+    async (): Promise<boolean> => {
+      if (Platform.OS === 'android') {
+        try {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            {
+              title: 'Quyền vị trí ShopAI',
+              message:
+                'ShopAI cần quyền truy cập vị trí để ước tính chi phí giao hàng tận nhà.',
+              buttonNeutral: 'Hỏi lại sau',
+              buttonNegative: 'Hủy',
+              buttonPositive: 'Đồng ý',
+            },
           );
+
+          if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+            setHasPermission(true);
+            return true;
+          }
+
+          setHasPermission(false);
+
+          if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+            updateError(makeLocationError('permission_blocked'));
+
+            Alert.alert(
+              'Quyền Vị Trí Bị Chặn',
+              'Bạn đã tắt vĩnh viễn quyền vị trí. Vui lòng vào Cài đặt để kích hoạt.',
+              [
+                { text: 'Để sau', style: 'cancel' },
+                {
+                  text: 'Mở Cài đặt',
+                  onPress: () => {
+                    Linking.openSettings().catch(() => {
+                      Alert.alert(
+                        'Lỗi',
+                        'Không thể mở Cài đặt. Vui lòng mở Cài đặt thủ công.',
+                      );
+                    });
+                  },
+                },
+              ],
+            );
+
+            return false;
+          }
+
+          updateError(makeLocationError('permission_denied'));
+          return false;
+        } catch {
+          updateError(makeLocationError('unknown'));
           return false;
         }
-        updateError(makeLocationError('permission_denied'));
-        return false;
-      } catch {
-        updateError(makeLocationError('unknown'));
-        return false;
       }
-    }
-    return true;
-  };
 
-  const calculateShipping = (userLat: number, userLng: number) => {
-    const km = getDistanceKm(WAREHOUSE_LAT, WAREHOUSE_LNG, userLat, userLng);
-    setDistanceKm(km);
-    setShippingFee(calculateShippingFee(km));
-  };
+      setHasPermission(true);
+      return true;
+    },
+    [updateError],
+  );
+
+  const calculateShipping = useCallback(
+    (userLat: number, userLng: number) => {
+      const km = getDistanceKm(
+        WAREHOUSE_LAT,
+        WAREHOUSE_LNG,
+        userLat,
+        userLng,
+      );
+
+      setDistanceKm(km);
+      setShippingFee(calculateShippingFee(km));
+    },
+    [],
+  );
+
 
   const refreshLocation = useCallback(async () => {
     const granted = await requestLocationPermission();
@@ -128,7 +160,7 @@ export function useLocation() {
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
     );
-  }, []);
+  },[requestLocationPermission, updateError, calculateShipping]);
 
   useEffect(() => {
     refreshLocation();

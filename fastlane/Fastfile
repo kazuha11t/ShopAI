@@ -1,0 +1,8 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build a locally signed release APK; does not upload to any store"
+  lane :release do
+    gradle(task: ":app:assembleRelease", project_dir: "android")
+  end
+end

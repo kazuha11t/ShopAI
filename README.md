@@ -1,97 +1,110 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# ShopAI
 
-# Getting Started
+[![Mobile CI](https://github.com/kazuha11t/ShopAI/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kazuha11t/ShopAI/actions/workflows/ci.yml)
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+Ứng dụng mua sắm React Native: đăng nhập JWT, danh mục sản phẩm, giỏ hàng,
+đặt hàng, thanh toán giả lập, quét QR, GPS, khóa sinh trắc học và tư vấn AI.
 
-## Step 1: Start Metro
+- **Mobile:** repo này, React Native 0.86.3, React 19.2.3, Expo SDK 57.
+- **Backend:** [ShopAI-backend](https://github.com/kazuha11t/ShopAI-backend), NestJS + Prisma + SQLite.
+- **Đối chiếu đề cương:** [11 chương](docs/11-chapters.md).
+- **Kết quả thực tế:** [Báo cáo kiểm chứng](docs/verification.md).
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Chuẩn bị trên máy mới
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+Cần Node.js 22 (từ 22.13) hoặc 24 (từ 24.3), npm, Java 17, Android SDK và điện thoại Android bật USB debugging.
+Build iOS cần macOS/Xcode. Dự án dùng native modules; chạy bằng app native, không dùng Expo Go.
 
-```sh
-# Using npm
+```powershell
+git clone https://github.com/kazuha11t/ShopAI.git ShopAI
+git clone https://github.com/kazuha11t/ShopAI-backend.git shopai-backend
+```
+
+1. Khởi động backend theo [README backend](https://github.com/kazuha11t/ShopAI-backend#readme).
+2. Trong Firebase Console, thêm ứng dụng Android với package `com.shopai`, tải
+   `google-services.json` và đặt tại `android/app/google-services.json`.
+   Cấu hình Firebase riêng của máy không nằm trong Git. Nếu dùng Firebase cho iOS,
+   thêm cấu hình tương ứng cho bundle ID `com.shopai`.
+3. Trong thư mục `ShopAI`:
+
+```powershell
+npm ci
+adb devices
+adb reverse tcp:3000 tcp:3000
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
+Terminal khác:
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
+```powershell
+cd ShopAI
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+Nếu terminal đã ở thư mục `ShopAI`, chạy ngay `npm run android`.
+Với APK release đã cài sẵn, chỉ cần bật backend và `adb reverse`; không cần Metro.
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## Tài khoản demo và API
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+Sau khi seed demo trên backend, đăng nhập bằng `demo@shopai.com` / `123456`.
+Đây là tài khoản dữ liệu mẫu dành cho đồ án.
 
-```sh
-bundle install
+API mặc định: `http://127.0.0.1:3000/api`, kết nối qua USB bằng ADB reverse.
+Muốn dùng server khác:
+
+```powershell
+$env:SHOPAI_API_URL = 'https://your-server.example/api'
+npm run configure:api
 ```
 
-Then, and every time you update your native dependencies, run:
+Sau đó build lại app. Backend chạy trên máy cá nhân không tự trở thành dịch vụ
+online khi push mã nguồn lên GitHub. Gemini API key chỉ cấu hình ở backend.
 
-```sh
-bundle exec pod install
+## Kịch bản demo
+
+1. Đăng nhập, xem sản phẩm, chuyển sáng/tối và mở menu danh mục.
+2. Thêm sản phẩm vào giỏ, sửa số lượng, xác nhận đặt hàng.
+3. Mở đơn hàng và thanh toán giả lập để chuyển từ PENDING sang PAID.
+4. Hỏi AI tư vấn mua sắm; cần backend có Gemini key và Internet.
+5. Quét [QR sản phẩm](qr-codes/index.html), thử GPS và khóa sinh trắc học.
+6. Mở menu **Cập nhật ứng dụng** để xem kênh, runtime và update ID.
+
+Thanh toán không thu tiền thật. Giá và phí thanh toán được backend xác nhận;
+GPS trên Home chỉ ước tính khoảng cách/phí. Phí demo phía server là 25.000đ trước voucher.
+
+## Kiểm thử và CI
+
+```powershell
+npm run typecheck
+npm run lint
+npm test -- --runInBand
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+[Workflow CI](.github/workflows/ci.yml) chạy các bước trên cho mỗi push/pull request.
+Các luồng Maestro nằm trong [.maestro](.maestro); cần backend và điện thoại đã mở khóa.
+Kết quả local đã ghi: 16 test mobile, 15 test backend và 2 flow Maestro đạt.
+Xem [báo cáo](docs/verification.md) để phân biệt kết quả local, xác nhận người dùng và dịch vụ bên ngoài.
 
-```sh
-# Using npm
-npm run ios
+## APK release và OTA
 
-# OR using Yarn
-yarn ios
+Trên máy Windows đã cấu hình Java/Android SDK và Firebase:
+
+```powershell
+node scripts/create-local-signing.cjs
+.\scripts\build-release.ps1 -Architectures arm64-v8a
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+APK sinh tại `android/app/build/outputs/apk/release/app-release.apk`.
+Khóa ký nằm trong `.local-signing/`; sao lưu riêng để giữ chữ ký khi cập nhật.
+APK, khóa ký, log, database và thư mục `node_modules` không đưa vào Git.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+Expo project hiện liên kết kênh `preview`, runtime `1.0.0-rn0863`.
+Chỉ người có quyền trên dự án Expo mới phát hành được bản cập nhật cho dự án đó.
+Hướng dẫn OTA, cấu hình native và giới hạn nằm trong [đối chiếu 11 chương](docs/11-chapters.md).
 
-## Step 3: Modify your app
+## Minh chứng
 
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- [Đơn hàng PAID trên điện thoại](docs/evidence/android-order-paid.png).
+- [OTA đã áp dụng trên điện thoại](docs/evidence/android-ota-applied.png).
+- Camera QR và sinh trắc học đã được người dùng xác nhận; GPS đã lấy được vị trí.
+- Crashlytics trên Firebase Console và build iOS cần được kiểm chứng riêng.

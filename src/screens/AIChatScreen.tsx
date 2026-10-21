@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 // src/screens/AIChatScreen.tsx
 // Chương 8 (Bước 9): Nhân viên tư vấn AI (Gemini) — đủ các mẫu UX của Phần 8.10:
 // typing indicator, nút Thử lại, gợi ý khi rỗng, tự cuộn, khoá nút Gửi khi đang chờ.
@@ -34,6 +35,7 @@ const formatTime = (timestamp: number) => {
 };
 
 export default function AIChatScreen() {
+  const styles = useThemedStyles(baseStyles);
   const [messages, setMessages] = useState<Message[]>([
     { id: 'greeting', text: AI_GREETING, isBot: true, status: 'sent', createdAt: Date.now() },
   ]);
@@ -227,7 +229,7 @@ export default function AIChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
 
   statusBar: {

@@ -1,7 +1,10 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
+import { authenticate, apiErrorMessage } from '@services/api';
 // src/screens/LoginScreen.tsx
 // Chương 5: Màn hình Đăng nhập (AuthStack) có Form Validation + Loading State
 
 import React, { useState } from 'react';
+import { Alert } from 'react-native';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import ShopButton from '@components/ShopButton';
 import ShopInput from '@components/ui/ShopInput';
@@ -9,35 +12,58 @@ import { COLORS, SIZES } from '@constants/theme';
 import { loginSchema, extractFieldErrors } from '@utils/validation';
 
 interface LoginScreenProps {
-  onLogin: (token: string) => void;
+  onLogin: (token: string) => void | Promise<void>;
   onGoRegister: () => void;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoRegister }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({
+  onLogin,
+  onGoRegister,
+}) => {
+  const styles = useThemedStyles(baseStyles);
   const [email, setEmail] = useState('demo@shopai.com');
   const [password, setPassword] = useState('123456');
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
-    // Chương 6.7: Validate bằng Zod thay vì if/else thủ công
-    const result = extractFieldErrors(loginSchema, { email, password });
+    const result = extractFieldErrors(loginSchema, {
+      email,
+      password,
+    });
+
     if (!result.success) {
       setErrors(result.errors);
       return false;
     }
+
     setErrors({});
     return true;
   };
 
-  const handleLogin = () => {
-    if (!validate()) return;
+  const handleLogin = async () => {
+    if (loading || !validate()) {
+      return;
+    }
+
     setLoading(true);
-    // Giả lập gọi API đăng nhập
-    setTimeout(() => {
+
+    try {
+      const token = await authenticate('login', { email, password });
+      await onLogin(token);
+    } catch (error) {
+      console.warn('[login] Đăng nhập thất bại');
+
+      Alert.alert(
+        'Đăng nhập thất bại',
+        apiErrorMessage(error),
+      );
+    } finally {
       setLoading(false);
-      onLogin('mock_jwt_token_shopai_123456');
-    }, 1000);
+    }
   };
 
   return (
@@ -87,7 +113,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoRegister }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
   },

@@ -1,3 +1,4 @@
+import { useThemedStyles } from '@hooks/useThemedStyles';
 ﻿// src/screens/ProductDetailScreen.tsx
 // Chương 5, 6 & 7: Chi tiết sản phẩm, Thêm vào Giỏ hàng (Zustand) & Phản hồi rung (Vibration Haptic)
 
@@ -7,16 +8,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import ShopButton from '@components/ShopButton';
 import ShopInput from '@components/ui/ShopInput';
-import { MOCK_PRODUCTS } from '@data/mockProducts';
+import { useQuery } from '@tanstack/react-query';
+import { fetchProduct, apiErrorMessage } from '@services/api';
 import { COLORS, SIZES } from '@constants/theme';
 import { useCartStore } from '@store/useCartStore';
 import { useWishlistStore } from '@store/useWishlistStore';
 import { useReviewStore } from '@store/useReviewStore';
 import type { HomeStackParamList } from '@navigation/HomeStackNavigator';
+import { formatCurrency } from '@utils/formatCurrency';
 
 type ProductDetailRouteProp = RouteProp<HomeStackParamList, 'ProductDetail'>;
 
 const ProductDetailScreen: React.FC = () => {
+  const styles = useThemedStyles(baseStyles);
   const route = useRoute<ProductDetailRouteProp>();
   const navigation = useNavigation();
   const { productId } = route.params;
@@ -31,8 +35,9 @@ const ProductDetailScreen: React.FC = () => {
   const [reviewComment, setReviewComment] = useState('');
 
   // Lấy dữ liệu sản phẩm dựa trên ID truyền qua params
-  const product = MOCK_PRODUCTS.find((p) => p.id === productId);
-  const allReviews = [...userReviews, ...(product?.reviews ?? [])];
+  const productQuery = useQuery({ queryKey: ['products', productId], queryFn: () => fetchProduct(productId) });
+  const product = productQuery.data;
+  const allReviews = userReviews;
 
   const handleSubmitReview = () => {
     if (!reviewComment.trim()) {
@@ -49,7 +54,8 @@ const ProductDetailScreen: React.FC = () => {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.notFoundContainer}>
           <Text style={styles.notFoundEmoji}>🔍</Text>
-          <Text style={styles.notFound}>Không tìm thấy sản phẩm #{productId}</Text>
+          <Text style={styles.notFound}>{productQuery.isPending ? 'Đang tải sản phẩm…' : apiErrorMessage(productQuery.error)}</Text>
+          <ShopButton title="Thử lại" onPress={() => { productQuery.refetch(); }} />
           <ShopButton
             title="Quay lại"
             onPress={() => navigation.goBack()}
@@ -60,10 +66,7 @@ const ProductDetailScreen: React.FC = () => {
     );
   }
 
-  const formattedPrice = new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(product.price);
+  const formattedPrice = formatCurrency(product.price);
 
   const handleAddToCart = () => {
     // Phản hồi rung nhẹ Native Hardware (Chương 7.6)
@@ -166,7 +169,7 @@ const ProductDetailScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.surface,

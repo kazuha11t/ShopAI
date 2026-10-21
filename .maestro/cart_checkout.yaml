@@ -1,0 +1,24 @@
+appId: com.shopai
+---
+- runFlow: login_home.yaml
+- openLink: "shopai://product/1"
+- extendedWaitUntil:
+    visible: "Thêm vào giỏ.*"
+    timeout: 15000
+- tapOn: "Thêm vào giỏ.*"
+- tapOn: "OK"
+- openLink: "shopai://cart"
+- tapOn: "Tiến hành Đặt hàng"
+- extendedWaitUntil:
+    visible:
+      text: "Xác nhận Đặt Hàng"
+      enabled: true
+    timeout: 15000
+- tapOn: "Xác nhận Đặt Hàng"
+- extendedWaitUntil:
+    visible: "Chờ khách hàng thanh toán"
+    timeout: 20000
+- tapOn: "Thanh toán ngay.*"
+- assertVisible: "Thanh toán giả lập thành công"
+- tapOn: "OK"
+- assertVisible: "Đơn hàng đã thanh toán"
